@@ -10,6 +10,7 @@ from homeassistant.components.media_player import (
 
 from custom_components.oppo_udp.const import DOMAIN
 from custom_components.oppo_udp.media_player import OppoUdpMediaPlayer
+from custom_components.oppo_udp.models import OppoModel
 from custom_components.oppo_udp.oppoudpsdk import DiscType, PlayStatus, PowerStatus
 from tests.conftest import MOCK_HOST
 
@@ -28,6 +29,28 @@ def test_supported_features_only_advertises_implemented(mock_manager):
     assert features & MediaPlayerEntityFeature.PLAY
     assert features & MediaPlayerEntityFeature.SEEK
     assert features & MediaPlayerEntityFeature.SELECT_SOURCE
+
+
+def test_features_and_sources_filtered_for_non_udp_model(mock_manager):
+    # A Blu-ray-gen player has no input selection; the entity must not advertise
+    # SELECT_SOURCE or offer a source list — but core transport still works.
+    mock_manager.device.firmware_version = "BDP83-14-0306"
+    player = _player(mock_manager)
+    assert not (player.supported_features & MediaPlayerEntityFeature.SELECT_SOURCE)
+    assert player.source_list is None
+    assert player.supported_features & MediaPlayerEntityFeature.PLAY
+
+
+def test_discovered_203_narrows_inputs_over_firmware(mock_manager):
+    # #QVR only says "UDP-20x"; the discovery beacon pins it to a 203, so the
+    # DAC-only inputs (Optical/Coax/USB) must drop out of the source list.
+    mock_manager.device.firmware_version = "UDP20X-54-1127"
+    mock_manager.discovered_model = OppoModel.UDP_203
+    sources = _player(mock_manager).source_list
+    assert "Optical In" not in sources
+    assert "Coax In" not in sources
+    assert "Usb In" not in sources
+    assert "Bluray" in sources and "Hdmi In Bypass" in sources
 
 
 # ── state mapping ──────────────────────────────────────────────────────────────

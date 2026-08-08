@@ -8,7 +8,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, PLATFORMS
-from .controller import OppoController
+from .controller import OppoController, entry_url
+from .discovery import async_acquire_discovery, async_release_discovery
 
 OppoConfigEntry = ConfigEntry[OppoController]
 
@@ -24,6 +25,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: OppoConfigEntry):
 
     controller = OppoController(hass, entry)
     entry.runtime_data = controller
+
+    # The multicast beacon is IP-only; acquire the shared listener for native
+    # socket entries so the controller can resolve its exact model (203 vs 205).
+    if entry_url(entry).startswith("socket://"):
+        discovery = await async_acquire_discovery(hass)
+        await controller.attach_discovery(discovery)
 
     async def on_hass_stop(event):
         """Stop the connection when Home Assistant stops."""
@@ -48,5 +55,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: OppoConfigEntry):
 
     if unload_ok:
         await entry.runtime_data.disconnect()
+        if entry_url(entry).startswith("socket://"):
+            await async_release_discovery(hass)
 
     return unload_ok

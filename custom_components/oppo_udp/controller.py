@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 from collections import defaultdict
 from collections.abc import Callable
 
@@ -37,10 +38,13 @@ from .const import (
     SIGNAL_CONNECTED,
     SIGNAL_DISCONNECTED,
 )
+from .discovery import OppoDiscovery
+from .models import OppoModel
 from .oppoudpsdk import OppoDevice
 from .oppoudpsdk.command import OppoCommand
 from .oppoudpsdk.const import (
     EVENT_CONNECTED,
+    EVENT_DEVICE_STATE_UPDATED,
     EVENT_DISCONNECTED,
     EVENT_MESSAGE_RECEIVED,
 )
@@ -68,6 +72,19 @@ def entry_url(config_entry: ConfigEntry) -> str:
     return f"socket://{host}:{port}"
 
 
+def _socket_host(url: str) -> str | None:
+    """Return the host of a ``socket://host:port`` URL, else None.
+
+    Only native-IP entries can be matched to a discovery beacon (which carries
+    the player's own IP); serial-over-IP gateways reach the player through a
+    different address, so they yield None.
+    """
+    prefix = "socket://"
+    if not url.startswith(prefix):
+        return None
+    return url[len(prefix):].rsplit(":", 1)[0] or None
+
+
 class OppoController:
     """Owns the connection + device and bridges them to Home Assistant."""
 
@@ -89,6 +106,10 @@ class OppoController:
         self._device = OppoDevice(self)
         self._msg_queue: asyncio.Queue[str] = asyncio.Queue()
         self._msg_task: asyncio.Task | None = None
+        # Discovery-provided exact model (203 vs 205); wired in attach_discovery.
+        self._discovery: OppoDiscovery | None = None
+        self._host_ip: str | None = None
+        self._discovery_unsub: Callable[[], None] | None = None
 
     # ── manager-facing surface (what entities read) ────────────────────────────
 
@@ -107,6 +128,40 @@ class OppoController:
     @property
     def hass(self) -> HomeAssistant:
         return self._hass
+
+    @property
+    def discovered_model(self) -> OppoModel | None:
+        """Exact model from the discovery beacon (UDP-203/205), if known yet.
+
+        None when discovery isn't wired (serial transport), the player's IP
+        isn't resolved, or no beacon has been heard. Entities prefer this over
+        the coarser #QVR generation for feature/input filtering.
+        """
+        if self._discovery is None or self._host_ip is None:
+            return None
+        return self._discovery.model_for(self._host_ip)
+
+    async def attach_discovery(self, discovery: OppoDiscovery) -> None:
+        """Resolve this player's IP and subscribe to beacons for its model."""
+        host = _socket_host(entry_url(self._config_entry))
+        if host is None:
+            return
+        try:
+            self._host_ip = await self._hass.async_add_executor_job(
+                socket.gethostbyname, host
+            )
+        except OSError:
+            self._host_ip = host  # best effort; host may already be an IP
+        self._discovery = discovery
+        self._discovery_unsub = discovery.subscribe(
+            self._host_ip, self._on_model_discovered
+        )
+
+    def _on_model_discovered(self) -> None:
+        """Refresh entities when the beacon reveals/updates the exact model."""
+        self._hass.loop.create_task(
+            self.async_event(EVENT_DEVICE_STATE_UPDATED, self._device)
+        )
 
     # ── client-facing surface (what OppoDevice binds to) ───────────────────────
 
@@ -162,6 +217,9 @@ class OppoController:
 
     async def disconnect(self) -> None:
         """Stop the connection and the message pump."""
+        if self._discovery_unsub is not None:
+            self._discovery_unsub()
+            self._discovery_unsub = None
         await self._conn.stop()
         if self._msg_task:
             self._msg_task.cancel()

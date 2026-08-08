@@ -39,7 +39,11 @@ def mock_device():
     client = MagicMock()
     client.async_send_command = AsyncMock()
     client.async_event = AsyncMock()
-    return OppoDevice(client)
+    device = OppoDevice(client)
+    # Default the test device to a UDP-20x (the full-capability model), the way
+    # a QVR reply would; per-model behavior is exercised in test_models.py.
+    device.firmware_version = "UDP20X-54-1127"
+    return device
 
 
 @pytest.fixture
