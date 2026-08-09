@@ -58,3 +58,18 @@ def test_subscribe_fires_immediately_if_already_known(hass):
     calls: list[int] = []
     disc.subscribe("192.168.1.50", lambda: calls.append(1))
     assert calls == [1]
+
+
+def test_device_listener_fires_for_existing_and_new(hass):
+    disc = OppoDiscovery(hass)
+    disc._handle(BEACON_205, ("192.168.1.50", 7624))  # known before we listen
+    seen: list[tuple[str, OppoModel]] = []
+    unsub = disc.add_device_listener(lambda ip, model: seen.append((ip, model)))
+    assert seen == [("192.168.1.50", OppoModel.UDP_205)]  # replayed on register
+
+    disc._handle(BEACON_203, ("192.168.1.51", 7624))  # a new one
+    assert ("192.168.1.51", OppoModel.UDP_203) in seen
+
+    unsub()
+    disc._handle(BEACON_205, ("192.168.1.52", 7624))  # no longer listening
+    assert len(seen) == 2

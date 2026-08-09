@@ -2,18 +2,31 @@
 
 import logging
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import (
+    SOURCE_INTEGRATION_DISCOVERY,
+    ConfigEntry,
+)
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import discovery_flow
 
-from .const import DOMAIN, PLATFORMS
+from .const import DEFAULT_PORT, DOMAIN, PLATFORMS
 from .controller import OppoController, entry_url
-from .discovery import async_acquire_discovery, async_release_discovery
+from .discovery import (
+    DATA_KEY,
+    OppoDiscovery,
+    async_acquire_discovery,
+    async_release_discovery,
+)
 
 OppoConfigEntry = ConfigEntry[OppoController]
 
 CONFIG_SCHEMA = cv.deprecated(DOMAIN)
+
+# Set once the beacon->flow trigger is registered, so it happens a single time
+# across all entries and can be torn down with the shared listener.
+FLOW_TRIGGER_KEY = "oppo_udp_discovery_flow_trigger"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,6 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: OppoConfigEntry):
     if entry_url(entry).startswith("socket://"):
         discovery = await async_acquire_discovery(hass)
         await controller.attach_discovery(discovery)
+        _ensure_flow_trigger(hass, discovery)
 
     async def on_hass_stop(event):
         """Stop the connection when Home Assistant stops."""
@@ -57,5 +71,28 @@ async def async_unload_entry(hass: HomeAssistant, entry: OppoConfigEntry):
         await entry.runtime_data.disconnect()
         if entry_url(entry).startswith("socket://"):
             await async_release_discovery(hass)
+            # The trigger lives on the shared listener; drop it once that's gone.
+            if hass.data.get(DATA_KEY) is None:
+                hass.data.pop(FLOW_TRIGGER_KEY, None)
 
     return unload_ok
+
+
+@callback
+def _ensure_flow_trigger(hass: HomeAssistant, discovery: OppoDiscovery) -> None:
+    """Register a one-time listener that offers newly-seen players for onboarding."""
+    if hass.data.get(FLOW_TRIGGER_KEY):
+        return
+
+    @callback
+    def _on_device(host: str, model) -> None:
+        # Already-configured players abort in the flow (unique_id / URL check);
+        # this just surfaces unconfigured ones in Settings -> Devices.
+        discovery_flow.async_create_flow(
+            hass,
+            DOMAIN,
+            context={"source": SOURCE_INTEGRATION_DISCOVERY},
+            data={"host": host, "port": DEFAULT_PORT, "model": model},
+        )
+
+    hass.data[FLOW_TRIGGER_KEY] = discovery.add_device_listener(_on_device)

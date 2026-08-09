@@ -3,6 +3,9 @@
   "name": "Oppo UDP-20x",
   "codeowners": ["@eklundjon"],
   "config_flow": true,
+  "dhcp": [
+    { "macaddress": "0022DE*" }
+  ],
   "documentation": "https://github.com/eklundjon/ha-oppoudp",
   "integration_type": "device",
   "iot_class": "local_push",

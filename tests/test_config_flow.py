@@ -10,12 +10,14 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.oppo_udp.config_flow import _parse_url
 from custom_components.oppo_udp.const import DEFAULT_BAUDRATE, DOMAIN
 from custom_components.oppo_udp.controller import entry_url
 from custom_components.oppo_udp.exceptions import HaCannotConnect
+from custom_components.oppo_udp.models import OppoModel
 from tests.conftest import ENTRY_DATA, MOCK_HOST, MOCK_PORT
 
 _MENU = {"socket", "rfc2217", "esphome", "serial"}
@@ -187,3 +189,78 @@ def test_entry_url_prefers_stored_url():
         domain=DOMAIN, data={"url": "rfc2217://gw:5000", "baudrate": 9600}
     )
     assert entry_url(entry) == "rfc2217://gw:5000"
+
+
+# ── discovery (dhcp + beacon) ─────────────────────────────────────────────────
+
+async def test_dhcp_discovery_confirm_creates_socket_entry(hass):
+    info = DhcpServiceInfo(
+        ip="192.168.1.60", hostname="oppo-203", macaddress="aabbcc112233"
+    )
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "dhcp"}, data=info
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "discovery_confirm"
+    with _patch_probe(), _patch_setup():
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        await hass.async_block_till_done()
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    # DHCP doesn't know the variant; title stays generic, URL is native socket.
+    assert result["data"]["url"] == "socket://192.168.1.60:23"
+    assert result["title"] == "OPPO UDP-20x (192.168.1.60)"
+
+
+async def test_integration_discovery_titles_by_model(hass):
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "integration_discovery"},
+        data={"host": "192.168.1.61", "port": MOCK_PORT, "model": OppoModel.UDP_205},
+    )
+    assert result["step_id"] == "discovery_confirm"
+    with _patch_probe(), _patch_setup():
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        await hass.async_block_till_done()
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["title"] == "OPPO UDP-205"  # beacon knew the exact model
+    assert result["data"]["url"] == "socket://192.168.1.61:23"
+
+
+async def test_discovery_aborts_if_already_configured(hass):
+    # A legacy host/port entry resolves to socket://MOCK_HOST:23 — a beacon for
+    # the same player must not offer it again.
+    MockConfigEntry(domain=DOMAIN, data=ENTRY_DATA).add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "integration_discovery"},
+        data={"host": MOCK_HOST, "port": MOCK_PORT},
+    )
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+
+
+async def test_discovery_cannot_connect_reshows_confirm(hass):
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "integration_discovery"},
+        data={"host": "192.168.1.62", "port": MOCK_PORT, "model": OppoModel.UDP_203},
+    )
+    with _patch_probe(error=HaCannotConnect()):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "discovery_confirm"
+    assert result["errors"]["base"] == "cannot_connect"
+
+
+def test_manifest_dhcp_matches_oppo_oui():
+    # DHCP discovery hinges on the OPPO Digital OUI (00:22:DE) — guard it so a
+    # manifest edit can't silently disable auto-discovery.
+    import json
+    from pathlib import Path
+
+    manifest = json.loads(
+        (Path(__file__).parent.parent
+         / "custom_components" / "oppo_udp" / "manifest.json").read_text()
+    )
+    matchers = {m.get("macaddress") for m in manifest.get("dhcp", [])}
+    assert "0022DE*" in matchers

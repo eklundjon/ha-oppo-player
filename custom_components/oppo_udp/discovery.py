@@ -64,6 +64,9 @@ class OppoDiscovery:
         self._transport: asyncio.DatagramTransport | None = None
         self._models: dict[str, OppoModel] = {}
         self._subs: dict[str, list[Callable[[], None]]] = {}
+        # Fired (ip, model) whenever a player is first seen or its model changes,
+        # so onboarding can offer it as a discovered device.
+        self._device_listeners: list[Callable[[str, OppoModel], None]] = []
         self._refcount = 0
 
     async def async_start(self) -> None:
@@ -99,6 +102,7 @@ class OppoDiscovery:
             self._transport.close()
             self._transport = None
         self._subs.clear()
+        self._device_listeners.clear()
 
     @callback
     def _handle(self, data: bytes, addr: tuple) -> None:
@@ -113,6 +117,8 @@ class OppoDiscovery:
         _LOGGER.debug("Discovered %s at %s (%r)", model, ip, server_name)
         for cb in list(self._subs.get(ip, ())):
             cb()
+        for device_cb in list(self._device_listeners):
+            device_cb(ip, model)
 
     def model_for(self, ip: str | None) -> OppoModel | None:
         """The model last heard for ``ip``, or None if not yet seen."""
@@ -132,6 +138,24 @@ class OppoDiscovery:
             subs = self._subs.get(ip)
             if subs and callback_ in subs:
                 subs.remove(callback_)
+
+        return _unsub
+
+    def add_device_listener(
+        self, callback_: Callable[[str, OppoModel], None]
+    ) -> Callable[[], None]:
+        """Register a listener fired with (ip, model) when a player is discovered.
+
+        Fires once for every player already in the map, then on each new/changed
+        one. Returns an unsubscribe callable.
+        """
+        self._device_listeners.append(callback_)
+        for ip, model in list(self._models.items()):
+            callback_(ip, model)
+
+        def _unsub() -> None:
+            if callback_ in self._device_listeners:
+                self._device_listeners.remove(callback_)
 
         return _unsub
 
