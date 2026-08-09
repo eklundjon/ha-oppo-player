@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -21,6 +21,21 @@ ENTRY_DATA = {"host": MOCK_HOST, "port": MOCK_PORT}
 def auto_enable_custom_integrations(enable_custom_integrations):
     """Allow the custom component to load during tests (HA 2021.6+)."""
     yield
+
+
+@pytest.fixture(autouse=True)
+def _stub_discovery_socket():
+    """Never open the multicast discovery socket in tests.
+
+    async_start is best-effort in production, but the strict PHACC socket guard
+    fails a test's teardown on any socket.socket() attempt — even one we catch —
+    so stub it out. Tests exercise discovery via _handle/subscribe directly.
+    """
+    with patch(
+        "custom_components.oppo_udp.discovery.OppoDiscovery.async_start",
+        new_callable=AsyncMock,
+    ):
+        yield
 
 
 @pytest.fixture
