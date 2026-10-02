@@ -20,6 +20,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
+    SOURCE_USER,
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
@@ -30,6 +31,7 @@ from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from .connection import OppoConnection
 from .const import (
     CONF_BAUDRATE,
+    CONF_LEGACY_ENTRY_ID,
     CONF_URL,
     DEFAULT_BAUDRATE,
     DEFAULT_GATEWAY_PORT,
@@ -37,8 +39,9 @@ from .const import (
     DEFAULT_SERIAL_DEVICE,
     DOMAIN,
 )
-from .controller import entry_url
+from .controller import entry_url, socket_host
 from .exceptions import HaCannotConnect
+from .migration import async_legacy_code_installed, legacy_entries
 from .models import OppoModel, display_name
 
 _LOGGER = logging.getLogger(__name__)
@@ -124,12 +127,21 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
     _discovered_host: str | None = None
     _discovered_port: int = DEFAULT_PORT
     _discovered_model: OppoModel | None = None
+    # The old oppo_udp entry being imported (see migration.py).
+    _legacy_entry: ConfigEntry | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Pick a connection type, then collect its details in a sub-step."""
-        return self.async_show_menu(step_id="user", menu_options=_MENU_OPTIONS)
+        """Pick a connection type, then collect its details in a sub-step.
+
+        If players are still configured under the old oppo_udp domain, offer to
+        import them first, so they keep their entities and history.
+        """
+        options = list(_MENU_OPTIONS)
+        if legacy_entries(self.hass):
+            options.insert(0, "import_legacy")
+        return self.async_show_menu(step_id="user", menu_options=options)
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
@@ -163,6 +175,13 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
         # beacon/DHCP announcements while a flow is in progress.
         await self.async_set_unique_id(host)
         self._abort_if_unique_id_configured()
+        # A player still configured under the old domain is imported, not added
+        # a second time.
+        for legacy in legacy_entries(self.hass):
+            if socket_host(entry_url(legacy)) == host:
+                self._legacy_entry = legacy
+                self.context["title_placeholders"] = {"name": legacy.title}
+                return await self.async_step_import_legacy_confirm()
         if self._url_configured(f"socket://{host}:{port}"):
             return self.async_abort(reason="already_configured")
         self._discovered_host = host
@@ -191,6 +210,82 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
                 "name": self._discovered_title(),
                 "host": self._discovered_host,
             },
+        )
+
+    # ── Import from the old oppo_udp domain ────────────────────────────────────
+
+    async def async_step_import_legacy(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Pick which old oppo_udp player to import (skipped if there's one)."""
+        entries = {e.entry_id: e for e in legacy_entries(self.hass)}
+        if not entries:
+            return self.async_abort(reason="no_legacy_entries")
+        if user_input is not None:
+            self._legacy_entry = entries[user_input["entry"]]
+            return await self.async_step_import_legacy_confirm()
+        if len(entries) == 1:
+            self._legacy_entry = next(iter(entries.values()))
+            return await self.async_step_import_legacy_confirm()
+        return self.async_show_form(
+            step_id="import_legacy",
+            data_schema=vol.Schema(
+                {vol.Required("entry"): vol.In({k: e.title for k, e in entries.items()})}
+            ),
+        )
+
+    async def async_step_import_legacy_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm importing the chosen player, then create its new entry."""
+        legacy = self._legacy_entry
+        assert legacy is not None
+        # Its entities can only be moved once the old code is gone.
+        if await async_legacy_code_installed(self.hass):
+            if self.source == SOURCE_USER:
+                return self.async_abort(reason="legacy_still_installed")
+            # Discovered: stay under Discovered as a reminder that the player
+            # is still on the old code (HACS only updates oppo_player now).
+            return await self.async_step_import_legacy_remove_old()
+        if user_input is None:
+            self._set_confirm_only()
+            return self.async_show_form(
+                step_id="import_legacy_confirm",
+                description_placeholders={"name": legacy.title},
+            )
+
+        url = entry_url(legacy)
+        if legacy.unique_id:
+            await self.async_set_unique_id(legacy.unique_id, raise_on_progress=False)
+            self._abort_if_unique_id_configured()
+        if self._url_configured(url):
+            return self.async_abort(reason="already_configured")
+        # No probe: the player may be off, and it was working under the old
+        # domain. Setup moves the registry entries (migration.py).
+        return self.async_create_entry(
+            title=legacy.title,
+            data={
+                CONF_URL: url,
+                CONF_BAUDRATE: legacy.data.get(CONF_BAUDRATE, DEFAULT_BAUDRATE),
+                CONF_LEGACY_ENTRY_ID: legacy.entry_id,
+            },
+        )
+
+    async def async_step_import_legacy_remove_old(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Explain the delete-and-restart a discovered old player needs first.
+
+        Nothing can change until Home Assistant restarts, and the player is
+        discovered again then, so confirming just closes the card.
+        """
+        if user_input is not None:
+            return self.async_abort(reason="legacy_still_installed")
+        assert self._legacy_entry is not None
+        self._set_confirm_only()
+        return self.async_show_form(
+            step_id="import_legacy_remove_old",
+            description_placeholders={"name": self._legacy_entry.title},
         )
 
     def _discovered_title(self) -> str:

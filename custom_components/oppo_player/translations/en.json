@@ -6,6 +6,7 @@
         "title": "Oppo UDP-20x",
         "description": "How is the player connected?",
         "menu_options": {
+          "import_legacy": "Import a player from the old Oppo UDP-20x integration (oppo_udp)",
           "socket": "Network — native IP control (recommended)",
           "rfc2217": "Network serial gateway (RFC2217)",
           "esphome": "ESPHome serial proxy",
@@ -57,6 +58,21 @@
       "discovery_confirm": {
         "title": "Oppo UDP-20x",
         "description": "Add {name} ({host}) to Home Assistant?"
+      },
+      "import_legacy": {
+        "title": "Import a player",
+        "description": "Choose the player to import from the old Oppo UDP-20x integration. It keeps its entities, names, areas and history.",
+        "data": {
+          "entry": "Player"
+        }
+      },
+      "import_legacy_confirm": {
+        "title": "Import a player",
+        "description": "Import {name} from the old Oppo UDP-20x integration? It keeps its entities, names, areas and history, and the old entry is removed."
+      },
+      "import_legacy_remove_old": {
+        "title": "Move {name} to the new integration",
+        "description": "{name} is still running on the old Oppo UDP-20x integration (oppo_udp), which no longer gets updates. To move it, keeping its entities, names, areas and history:\n\n1. Delete the `custom_components/oppo_udp` folder.\n2. Restart Home Assistant.\n3. Go to **Add Integration**, search for **Oppo**, and choose **Import**.\n\nAfter the restart Home Assistant reports \"Integration oppo_udp not found\". Don't choose **Remove previous configurations** there: it deletes the player's settings before they can be imported."
       }
     },
     "flow_title": "{name}",
@@ -69,7 +85,9 @@
     "abort": {
       "already_configured": "This player is already configured",
       "already_in_progress": "Discovery is already in progress",
-      "reconfigure_successful": "Reconfiguration was successful"
+      "reconfigure_successful": "Reconfiguration was successful",
+      "legacy_still_installed": "The old Oppo UDP-20x integration (oppo_udp) is still installed. Delete the custom_components/oppo_udp folder, restart Home Assistant, then try again. Your player's settings and history are kept until then.",
+      "no_legacy_entries": "There are no players left to import from the old Oppo UDP-20x integration."
     }
   }
 }

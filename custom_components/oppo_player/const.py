@@ -4,6 +4,9 @@ from homeassistant.components.media_player import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.components.remote import DOMAIN as REMOTE_DOMAIN
 
 DOMAIN = "oppo_player"
+# The domain this integration used before 0.3.0 (shared with upstream
+# simbaja/ha_oppoudp). Its config entries can be imported; see migration.py.
+LEGACY_DOMAIN = "oppo_udp"
 
 # socket:// (native IP control) default: the Oppo listens on TCP 23.
 DEFAULT_PORT = 23
@@ -19,6 +22,9 @@ DEFAULT_BAUDRATE = 9600
 # are mapped to socket://host:port at read time (see controller.entry_url).
 CONF_URL = "url"
 CONF_BAUDRATE = "baudrate"
+# Set on an entry created by importing an old oppo_udp entry, until setup has
+# moved that entry's entities and device over (migration.py).
+CONF_LEGACY_ENTRY_ID = "legacy_entry_id"
 
 PLATFORMS = [MEDIA_PLAYER_DOMAIN, REMOTE_DOMAIN]
 
