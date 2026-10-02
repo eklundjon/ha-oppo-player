@@ -1,0 +1,132 @@
+name: Release
+
+# Opens a DRAFT release whenever manifest.json's version changes on master.
+#
+# manifest.json is the single source of truth for the version: it is bumped by
+# hand in a normal PR, and the tag is derived from it. Nothing here writes to a
+# tracked file, commits to master, or moves a tag.
+#
+# The tag itself is NOT created here. A draft release stores its tag name and
+# target and only creates the tag when the release is published, so tagging and
+# publishing happen as one atomic, deliberate act. Two consequences worth
+# knowing:
+#
+#   * There is no window in which a tag exists pointing at a tree whose manifest
+#     disagrees with it, so HACS (which installs the tree at the tag) always
+#     sees a matching manifest version.
+#   * Abandoning a release costs nothing: delete the draft. There is no orphan
+#     tag to clean up, and no tag deletion — another history mutation — to make.
+#
+# `--target "$GITHUB_SHA"` is load-bearing. target_commitish defaults to the
+# repository's default branch, and a branch target is resolved when the release
+# is PUBLISHED — so anything merged between drafting and publishing would move
+# the tag to a later commit, reintroducing exactly the drift this design
+# removes. Pinning to the immutable SHA that carried the bump makes that
+# impossible.
+#
+# Tags are "v<version>". Releases up to 0.2.0b1 were cut by hand with bare tags;
+# HACS compares versions with the "v" stripped, so the two styles order fine.
+#
+# Mirrors ha-haikubox's release workflow; keep the two in step.
+
+on:
+  push:
+    branches: [master]
+    paths: ["custom_components/oppo_udp/manifest.json"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    name: Draft release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history, so the notes step can find the version-bump commit
+          # under the merge commit.
+          fetch-depth: 0
+
+      - name: Read version from manifest
+        id: v
+        run: |
+          version=$(jq -er .version custom_components/oppo_udp/manifest.json)
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # Anything but a plain X.Y.Z (1.0.0rc1, ...) is drafted as a
+          # pre-release, so HACS offers it only to users who opt into betas. The
+          # flag survives publishing; a plain version can still be ticked by hand.
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Take the title and notes from the version-bump commit
+        id: notes
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+          MANIFEST: custom_components/oppo_udp/manifest.json
+        run: |
+          # The bump commit is the newest non-merge commit that touched the
+          # manifest. Its body (minus trailers like Co-Authored-By) goes above
+          # GitHub's generated "What's Changed" list. A subject of the form
+          # "Release <version>: <Name>" titles the draft "v<version> <Name>";
+          # anything else gets the bare tag. Commit with `git commit -F <file>`
+          # so `#` headings in the body survive.
+          bump=$(git log -1 --no-merges --format=%H -- "$MANIFEST")
+          subject=$(git log -1 --format=%s "$bump")
+          notes="$RUNNER_TEMP/release-notes.md"
+          git log -1 --format=%b "$bump" | python3 -c '
+          import re, sys
+          paras = re.split(r"\n\s*\n", sys.stdin.read().strip())
+          trailer = re.compile(r"^[A-Za-z][A-Za-z0-9-]*: .+$")
+          if paras and all(trailer.match(l) for l in paras[-1].splitlines()):
+              paras.pop()
+          body = "\n\n".join(paras).strip()
+          sys.stdout.write(body + "\n" if body else "")
+          ' > "$notes"
+          title="v$VERSION"
+          shopt -s nocasematch
+          re="^(chore: *)?release +v?${VERSION//./\\.}: *(.+)$"
+          if [[ "$subject" =~ $re ]]; then
+            title="v$VERSION ${BASH_REMATCH[2]}"
+          fi
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          echo "file=$notes" >> "$GITHUB_OUTPUT"
+
+      - name: Open a draft release pinned to this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.v.outputs.tag }}
+          PRERELEASE: ${{ steps.v.outputs.prerelease }}
+          TITLE: ${{ steps.notes.outputs.title }}
+          NOTES: ${{ steps.notes.outputs.file }}
+        run: |
+          # Idempotent: this also fires on manifest edits that don't touch the
+          # version (and on manual dispatch), and GitHub will happily create
+          # duplicate drafts sharing one tag name — so bail if this version
+          # already has a draft or a published release.
+          #
+          # Deliberately `release list` and not `release view "$TAG"`: a draft
+          # has no git tag until it is published, and the "get release by tag"
+          # API is documented only for published releases. Listing returns
+          # drafts (they carry tag_name + isDraft), so matching here catches the
+          # duplicate-draft case that is the whole point of this guard.
+          if gh release list --limit 100 --json tagName --jq '.[].tagName' \
+               | grep -qxF "$TAG"; then
+            echo "$TAG already has a release or draft — nothing to do."
+            exit 0
+          fi
+          flags=()
+          if [ "$PRERELEASE" = true ]; then flags+=(--prerelease); fi
+          # With --generate-notes, gh puts our notes first and GitHub's list after.
+          if [ -s "$NOTES" ]; then flags+=(--notes-file "$NOTES"); fi
+          gh release create "$TAG" \
+            --draft "${flags[@]}" \
+            --target "$GITHUB_SHA" \
+            --title "$TITLE" \
+            --generate-notes
+          echo "Drafted $TAG at $GITHUB_SHA — edit the notes and publish when ready."
