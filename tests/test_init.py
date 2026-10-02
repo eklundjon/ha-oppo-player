@@ -38,3 +38,25 @@ async def test_setup_wires_controller_and_entities(hass, config_entry):
 
     # connection torn down on unload.
     assert transport.writer.is_closing()
+
+
+async def test_url_only_entry_creates_entities(hass):
+    """Entries made by the connection menu store only a URL (no host key); both
+    platforms must still set up."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.oppo_player.const import DOMAIN
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="OPPO", data={"url": "socket://192.168.1.50:23", "baudrate": 9600}
+    )
+    entry.add_to_hass(hass)
+    transport = FakeTransport()
+    p1, p2 = _patches(transport)
+    with p1, p2:
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        domains = {state.domain for state in hass.states.async_all()}
+        assert {"media_player", "remote"} <= domains
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done()

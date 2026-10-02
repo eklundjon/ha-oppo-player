@@ -9,11 +9,10 @@ from homeassistant.components.remote import (
     DEFAULT_DELAY_SECS,
     RemoteEntity,
 )
-from homeassistant.const import CONF_HOST
 from homeassistant.core import callback
 
 from .const import DOMAIN
-from .controller import OppoController
+from .controller import OppoController, entry_url
 from .entity import OppoUdpEntity
 from .oppoudpsdk import (
     EVENT_DEVICE_STATE_UPDATED,
@@ -28,7 +27,8 @@ PARALLEL_UPDATES = 0
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Load Oppo UDP remote based on a config entry."""
-    host = config_entry.data[CONF_HOST]
+    # Entries made by the connection menu store only a URL, not a host.
+    host = entry_url(config_entry)
     manager = config_entry.runtime_data
     async_add_entities([OppoUdpRemote(host, DOMAIN, config_entry.entry_id, manager)])
 
