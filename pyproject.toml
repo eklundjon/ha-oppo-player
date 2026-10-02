@@ -1,8 +1,8 @@
 [tool.ruff]
 line-length = 100
-# Minimum supported Home Assistant (hacs.json) is 2024.11, which runs on
-# Python 3.12+. Target that so `UP` doesn't suggest newer-only syntax.
-target-version = "py312"
+# Minimum supported Home Assistant (hacs.json) is 2025.2, which runs on
+# Python 3.13+. Target that so `UP` doesn't suggest newer-only syntax.
+target-version = "py313"
 # The vendored SDK is upstream code kept byte-verbatim as a diff baseline; it is
 # not linted to our rules. Fixes to it are made deliberately, not by the linter.
 extend-exclude = ["custom_components/oppo_udp/oppoudpsdk"]

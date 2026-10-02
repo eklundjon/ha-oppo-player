@@ -1,0 +1,70 @@
+name: Bug report
+description: Something isn't working with your OPPO player.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A debug log is the most useful thing you can attach. To get one, open the integration under **Settings → Devices & Services**, choose **Enable debug logging**, reproduce the problem, then choose **Disable debug logging** to download the log.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: model
+    attributes:
+      label: Player model
+      options:
+        - UDP-203
+        - UDP-205
+        - Other (say which below)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: connection
+    attributes:
+      label: How is the player connected?
+      options:
+        - Network (native IP control)
+        - RFC2217 serial gateway
+        - ESPHome serial proxy
+        - Local serial (USB adapter)
+    validations:
+      required: true
+
+  - type: input
+    id: integration-version
+    attributes:
+      label: Integration version
+      description: Shown in HACS, or in `custom_components/oppo_udp/manifest.json`.
+      placeholder: "0.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      description: Settings → About.
+      placeholder: "2026.10.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Debug log
+      description: Paste the relevant part, or drag the log file in. Remove anything you'd rather not share.
+      render: text
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Player firmware version, your gateway or ESPHome setup, screenshots.

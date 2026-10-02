@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest something the integration could do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like it to do?
+      description: Describe what you're trying to achieve, not just the feature. That helps find the best way to do it.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: model
+    attributes:
+      label: Player model
+      options:
+        - UDP-203
+        - UDP-205
+        - Other (say which below)
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Links, examples, or the protocol command it would use (see docs/PROTOCOL.md).
