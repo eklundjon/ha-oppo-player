@@ -42,10 +42,10 @@ jobs:
           # PHACC pins HA. The Python version is part of the pin: HA moved to
           # 3.14 in 2026.3 and PHACC followed, so testing current HA needs 3.14.
           #
-          # NOTE: hacs.json declares a 2024.11 floor (runtime_data + the
-          # reconfigure helpers). The minimum job below tests 2025.2, which is
-          # >= that floor and exercises the same APIs; a dedicated 2024.11 job
-          # can be added later for exact-floor fidelity.
+          # The minimum job must match the floor declared in hacs.json, so the
+          # oldest version we let HACS install is one we actually test. Raise
+          # both together. (The job name is a required check in branch
+          # protection, so renaming it means updating the protection rule too.)
           - name: "HA 2025.2 (minimum)"
             phacc: "0.13.215"   # Home Assistant 2025.2.5 (needs Python >=3.13)
             python: "3.13"
