@@ -81,6 +81,8 @@ class OppoUdpMediaPlayer(OppoUdpEntity, MediaPlayerEntity):
 
     async def _on_device_state_updated(self, device: OppoDevice):
         """Handle a device state update event"""
+        # One entity per device is enough to keep the device page current.
+        self.async_sync_device_info()
         self.async_write_ha_state()
 
     async def _on_disc_id_changed(self, device: OppoDevice):

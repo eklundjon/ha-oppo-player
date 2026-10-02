@@ -60,3 +60,33 @@ async def test_url_only_entry_creates_entities(hass):
         assert {"media_player", "remote"} <= domains
         assert await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
+
+
+async def test_device_page_gets_the_model_once_known(hass, config_entry):
+    """HA reads device_info only when entities are added, before the player has
+    answered QVR; a later state update must still reach the device registry."""
+    from homeassistant.helpers import device_registry as dr
+
+    from custom_components.oppo_player.oppoudpsdk import EVENT_DEVICE_STATE_UPDATED
+
+    transport = FakeTransport()
+    p1, p2 = _patches(transport)
+    with p1, p2:
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+        registry = dr.async_get(hass)
+        # (async_get_device by identifiers is deprecated in HA 2026.9+.)
+        (device,) = dr.async_entries_for_config_entry(registry, config_entry.entry_id)
+        assert device.model == "OPPO Player"  # nothing known yet
+
+        controller = config_entry.runtime_data
+        controller.device.firmware_version = "UDP20X-54-1127"
+        await controller.async_event(EVENT_DEVICE_STATE_UPDATED, controller.device)
+        await hass.async_block_till_done()
+
+        device = registry.async_get(device.id)
+        assert device.model == "UDP-20x"
+        assert device.sw_version == "UDP20X-54-1127"
+
+        assert await hass.config_entries.async_unload(config_entry.entry_id)
+        await hass.async_block_till_done()
