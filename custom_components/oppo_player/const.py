@@ -10,8 +10,9 @@ LEGACY_DOMAIN = "oppo_udp"
 
 # socket:// (native IP control) default: the Oppo listens on TCP 23.
 DEFAULT_PORT = 23
-# rfc2217:// / esphome:// reach the RS-232 port through a network serial
-# gateway, which commonly listens on 4999 (e.g. Global Caché iTach).
+# socket:// also covers raw TCP serial gateways (e.g. Global Caché iTach, on
+# 4999), but defaults to the player's own port 23. The rfc2217:// / esphome://
+# steps pre-fill 4999, though ESPHome's API is actually on 6053.
 DEFAULT_GATEWAY_PORT = 4999
 # Local RS-232 defaults: the Oppo runs 9600 8N1 (docs/PROTOCOL.md).
 DEFAULT_SERIAL_DEVICE = "/dev/ttyUSB0"

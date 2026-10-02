@@ -7,7 +7,7 @@
         "description": "How is the player connected?",
         "menu_options": {
           "import_legacy": "Import a player from the old Oppo UDP-20x integration (oppo_udp)",
-          "socket": "Network — native IP control (recommended)",
+          "socket": "Network: the player's own IP control (recommended), or a TCP serial gateway (e.g. Global Cache iTach)",
           "rfc2217": "Network serial gateway (RFC2217)",
           "esphome": "ESPHome serial proxy",
           "serial": "Local serial (RS-232 adapter)"
@@ -17,7 +17,7 @@
         "title": "Oppo UDP-20x",
         "description": "Change how the player is connected.",
         "menu_options": {
-          "socket": "Network — native IP control (recommended)",
+          "socket": "Network: the player's own IP control (recommended), or a TCP serial gateway (e.g. Global Cache iTach)",
           "rfc2217": "Network serial gateway (RFC2217)",
           "esphome": "ESPHome serial proxy",
           "serial": "Local serial (RS-232 adapter)"
@@ -25,10 +25,14 @@
       },
       "socket": {
         "title": "Network connection",
-        "description": "The player's IP control address (native control port is 23).",
+        "description": "Enter the player's own IP control address (port 23), or a TCP serial gateway wired to its RS-232 port (use the gateway's port).",
         "data": {
-          "host": "Host name / IP",
+          "host": "Host",
           "port": "Port"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the player, or of the serial gateway",
+          "port": "23 for the player's own IP control, or the TCP port of the gateway's serial interface"
         }
       },
       "rfc2217": {
