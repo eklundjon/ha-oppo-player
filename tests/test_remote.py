@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from homeassistant.components.remote import ATTR_DELAY_SECS, ATTR_NUM_REPEATS
 
-from custom_components.oppo_udp.const import DOMAIN
-from custom_components.oppo_udp.oppoudpsdk import PowerStatus
-from custom_components.oppo_udp.remote import OppoUdpRemote
+from custom_components.oppo_player.const import DOMAIN
+from custom_components.oppo_player.oppoudpsdk import PowerStatus
+from custom_components.oppo_player.remote import OppoUdpRemote
 from tests.conftest import MOCK_HOST
 
 

@@ -26,7 +26,7 @@ CONFIG_SCHEMA = cv.deprecated(DOMAIN)
 
 # Set once the beacon->flow trigger is registered, so it happens a single time
 # across all entries and can be torn down with the shared listener.
-FLOW_TRIGGER_KEY = "oppo_udp_discovery_flow_trigger"
+FLOW_TRIGGER_KEY = "oppo_player_discovery_flow_trigger"
 
 _LOGGER = logging.getLogger(__name__)
 

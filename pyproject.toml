@@ -5,7 +5,7 @@ line-length = 100
 target-version = "py313"
 # The vendored SDK is upstream code kept byte-verbatim as a diff baseline; it is
 # not linted to our rules. Fixes to it are made deliberately, not by the linter.
-extend-exclude = ["custom_components/oppo_udp/oppoudpsdk"]
+extend-exclude = ["custom_components/oppo_player/oppoudpsdk"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "BLE"]
@@ -16,5 +16,5 @@ select = ["E", "F", "W", "I", "UP", "BLE"]
 # New code is linted strictly; these are cleaned up incrementally — manager.py's
 # connection layer is replaced wholesale in the Phase 4 refactor, and
 # media_player's ATTR_* star import goes away with the diagnostic-sensor split.
-"custom_components/oppo_udp/media_player.py" = ["F403", "F405", "E501"]
-"custom_components/oppo_udp/musicbrainz.py" = ["F403", "F405", "BLE001"]
+"custom_components/oppo_player/media_player.py" = ["F403", "F405", "E501"]
+"custom_components/oppo_player/musicbrainz.py" = ["F403", "F405", "BLE001"]

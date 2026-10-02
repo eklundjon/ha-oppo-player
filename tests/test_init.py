@@ -3,17 +3,17 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from custom_components.oppo_udp.controller import OppoController
+from custom_components.oppo_player.controller import OppoController
 from tests.test_connection import FakeTransport
 
 
 def _patches(transport):
     return (
         patch(
-            "custom_components.oppo_udp.connection.serialx.open_serial_connection",
+            "custom_components.oppo_player.connection.serialx.open_serial_connection",
             side_effect=transport.open,
         ),
-        patch("custom_components.oppo_udp.controller.SEND_INTERVAL", 0),
+        patch("custom_components.oppo_player.controller.SEND_INTERVAL", 0),
     )
 
 

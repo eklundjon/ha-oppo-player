@@ -3,7 +3,7 @@
 from homeassistant.components.media_player import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.components.remote import DOMAIN as REMOTE_DOMAIN
 
-DOMAIN = "oppo_udp"
+DOMAIN = "oppo_player"
 
 # socket:// (native IP control) default: the Oppo listens on TCP 23.
 DEFAULT_PORT = 23
@@ -22,6 +22,6 @@ CONF_BAUDRATE = "baudrate"
 
 PLATFORMS = [MEDIA_PLAYER_DOMAIN, REMOTE_DOMAIN]
 
-SIGNAL_CONNECTED = "oppo_udp_connected"
-SIGNAL_DISCONNECTED = "oppo_udp_disconnected"
-SIGNAL_CLIENT_CREATED = "oppo_udp_client_created"
+SIGNAL_CONNECTED = "oppo_player_connected"
+SIGNAL_DISCONNECTED = "oppo_player_disconnected"
+SIGNAL_CLIENT_CREATED = "oppo_player_client_created"

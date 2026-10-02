@@ -4,14 +4,14 @@ from __future__ import annotations
 import pytest
 from homeassistant.components.media_player import MediaPlayerEntityFeature
 
-from custom_components.oppo_udp.models import (
+from custom_components.oppo_player.models import (
     OppoModel,
     capabilities,
     detect_model,
     display_name,
     model_from_server_name,
 )
-from custom_components.oppo_udp.oppoudpsdk import SetInputSource
+from custom_components.oppo_player.oppoudpsdk import SetInputSource
 
 _DAC_INPUTS = {SetInputSource.OPTICAL_IN, SetInputSource.COAX_IN, SetInputSource.USB_IN}
 
