@@ -14,7 +14,9 @@ This is a Home Assistant integration for the OPPO UDP-203 and UDP-205 UHD Blu-ra
 - **Switch the player on for setup.** Setup checks that the player answers before it saves anything.
 - **For network control, set the player's standby mode to Network Standby.** Otherwise the player drops off the network when it's off, and Home Assistant can't turn it back on.
 
-This is a fork of [simbaja/ha_oppoudp](https://github.com/simbaja/ha_oppoudp). Both use the same integration domain (`oppo_udp`), so install one or the other, not both. See [Why this fork](#why-this-fork) for how they differ.
+> **Upgrading from 0.2.x, or moving from simbaja/ha_oppoudp?** Version 0.3.0 moved this integration to its own domain, `oppo_player`. Your player doesn't move over by itself; it takes a delete, a restart and one click. See [Moving to oppo_player](#moving-to-oppo_player).
+
+This is a fork of [simbaja/ha_oppoudp](https://github.com/simbaja/ha_oppoudp). See [Why this fork](#why-this-fork) for how they differ.
 
 ## Features
 
@@ -36,11 +38,11 @@ This repository isn't in the HACS default store, so add it as a custom repositor
 
 Or, in HACS, open the menu, choose **Custom repositories**, and add `https://github.com/eklundjon/ha-oppoudp` with the type **Integration**. Then download **Oppo UDP-20x** and restart Home Assistant.
 
-If you're moving over from simbaja/ha_oppoudp, see [Switching from the original](#switching-from-the-original) first.
+If you already have a player set up under the old `oppo_udp` integration (this one before 0.3.0, or simbaja/ha_oppoudp), see [Moving to oppo_player](#moving-to-oppo_player).
 
 **Manual**
 
-1. Copy the `custom_components/oppo_udp` folder into your Home Assistant `config/custom_components/` folder.
+1. Copy the `custom_components/oppo_player` folder into your Home Assistant `config/custom_components/` folder.
 2. Restart Home Assistant.
 
 ## Add the player
@@ -49,12 +51,12 @@ If the player gets its address from your router (DHCP), Home Assistant may find 
 
 Otherwise:
 
-1. Go to **Settings → Devices & Services → Add Integration** and search for **Oppo UDP**.
+1. Go to **Settings → Devices & Services → Add Integration** and search for **Oppo**.
 2. Choose how the player is connected:
 
 | Option | Use it when | You enter |
 |--------|-------------|-----------|
-| Network (recommended) | The player is on your network | The player's IP address. The port is 23. |
+| Network (recommended) | The player is on your network, or a TCP serial gateway (for example a Global Caché iTach) is wired to its RS-232 port | The player's IP address and port 23, or the gateway's address and serial port |
 | RFC2217 serial gateway | A serial-to-network gateway is wired to the player's RS-232 port | The gateway's address and port |
 | ESPHome serial proxy | An ESPHome device is wired to the player's RS-232 port | The ESPHome device's address and port |
 | Local serial | A USB serial adapter connects Home Assistant to the player's RS-232 port | The device path (for example `/dev/ttyUSB0`). The player's port runs at 9600 baud. |
@@ -97,18 +99,23 @@ This fork has gone further:
 - **Reconfigure.** Change the address or connection without deleting and re-adding the player.
 - **The OPPO library is built in.** The original depends on the `oppoudpsdk` package, which hasn't been released since January 2025, so fixes to it can't ship. This fork carries its own copy and fixes it directly.
 - **Tested.** An automated test suite runs on every change, against both the oldest supported and the latest Home Assistant.
+- **Its own domain.** This fork installs as `oppo_player`, so it doesn't overwrite the original's files, or those of other forks that also use `oppo_udp`. Don't connect both integrations to the same player, though.
 
-## Switching from the original
+## Moving to oppo_player
 
-Both integrations install to the same folder, so remove one before adding the other:
+Up to version 0.2.x this integration used the domain `oppo_udp`, the same as simbaja/ha_oppoudp and at least one other fork. Since they all install to the same folder, they overwrite each other. From 0.3.0 it uses its own domain, `oppo_player`.
 
-1. In HACS, open **Oppo UDP-20x** from simbaja/ha_oppoudp and choose **Remove**. This removes the files only. Your configured player, entities and history stay.
-2. Add this repository and download it as described under [Install](#install).
-3. Restart Home Assistant.
+When HACS installs 0.3.0, it adds the new `custom_components/oppo_player` folder but leaves the old `custom_components/oppo_udp` folder where it is. Nothing breaks: your player keeps running on the old code until you move it. But the old code no longer gets updates, so move it soon. If Home Assistant spots the player on your network, it shows a card under **Discovered** as a reminder. To move it:
 
-Your existing player keeps working with no changes.
+1. **Remove the old code.**
+   - If you're upgrading this integration from 0.2.x, delete the `custom_components/oppo_udp` folder, for example with the File editor or Samba add-on. HACS no longer tracks that folder.
+   - If you're coming from simbaja/ha_oppoudp, open it in HACS and choose **Remove**. That deletes its files; your player, entities and history stay.
+2. **Restart Home Assistant.** The old integration's entry now shows as not loaded, and **Settings** shows a repair, "Integration oppo_udp not found". Both are expected. **Don't choose "Remove previous configurations" in that repair.** It deletes your player's old settings, and then there's nothing left to import. Leave the repair alone; the import clears it.
+3. Go to **Settings → Devices & Services → Add Integration**, search for **Oppo**, and choose **Import a player from the old Oppo UDP-20x integration**. If HA has discovered the player, the import is also offered under **Discovered**.
 
-Going back the other way is harder: once you add or reconfigure a player here, it's saved in a format the original can't read. If you switch back, delete the player and add it again in the original.
+The player keeps its entity IDs, names, areas and history, and the old entry is removed. If the import says the old integration is still installed, the `oppo_udp` folder is still there, or Home Assistant hasn't restarted since you deleted it.
+
+Going back is harder: once a player is imported, the original integration can't read its settings. To switch back, delete the player here and add it again in the original.
 
 ## Troubleshooting
 
@@ -117,7 +124,7 @@ To turn on debug logging, open the integration's page under **Settings → Devic
 ```yaml
 logger:
   logs:
-    custom_components.oppo_udp: debug
+    custom_components.oppo_player: debug
 ```
 
 When you [open an issue](https://github.com/eklundjon/ha-oppoudp/issues), please include your player model, how it's connected, your Home Assistant version, and the debug log.
@@ -130,6 +137,8 @@ When you [open an issue](https://github.com/eklundjon/ha-oppoudp/issues), please
 ## Credits
 
 Originally created by [Jack Simbach](https://github.com/simbaja) as [simbaja/ha_oppoudp](https://github.com/simbaja/ha_oppoudp). MIT licensed.
+
+The icon and logo are drawn from the OPPO wordmark on [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:OPPO_logo.svg) (a public-domain text logo), in the colors OPPO Digital used. OPPO is a trademark of its owner; this project isn't affiliated with OPPO.
 
 [ha]: https://www.home-assistant.io
 [ha-shield]: https://img.shields.io/badge/Home%20Assistant-2025.2+-blue.svg?style=for-the-badge&logo=homeassistant
