@@ -53,8 +53,13 @@
           "device": "Serial device",
           "baudrate": "Baud rate"
         }
+      },
+      "discovery_confirm": {
+        "title": "Oppo UDP-20x",
+        "description": "Add {name} ({host}) to Home Assistant?"
       }
     },
+    "flow_title": "{name}",
     "error": {
       "cannot_connect": "Failed to connect",
       "already_configured": "This connection is already configured",
@@ -62,6 +67,8 @@
       "unknown": "Unexpected error"
     },
     "abort": {
+      "already_configured": "This player is already configured",
+      "already_in_progress": "Discovery is already in progress",
       "reconfigure_successful": "Reconfiguration was successful"
     }
   }

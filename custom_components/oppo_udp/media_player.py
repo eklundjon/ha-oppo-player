@@ -7,7 +7,6 @@ import homeassistant.util.dt as dt_util
 import musicbrainzngs
 from homeassistant.components.media_player import MediaPlayerDeviceClass, MediaPlayerEntity
 from homeassistant.components.media_player.const import (
-    MediaPlayerEntityFeature,
     MediaPlayerState,
     MediaType,
     RepeatMode,
@@ -20,6 +19,7 @@ from homeassistant.core import callback
 from .const import DOMAIN
 from .controller import OppoController
 from .entity import OppoUdpEntity
+from .models import capabilities
 from .musicbrainz import MusicBrainzInfo, async_musicbrainz_get_info
 from .oppoudpsdk import (
     EVENT_DEVICE_STATE_UPDATED,
@@ -272,8 +272,9 @@ class OppoUdpMediaPlayer(OppoUdpEntity, MediaPlayerEntity):
 
     @property
     def source_list(self):
-        """List of available input sources."""
-        return [e.name.replace("_"," ").title() for e in SetInputSource]
+        """Input sources the connected model supports (None if it has none)."""
+        sources = capabilities(self.oppo_model).sources
+        return [e.name.replace("_"," ").title() for e in sources] or None
 
     @property
     def sound_mode(self):
@@ -306,22 +307,8 @@ class OppoUdpMediaPlayer(OppoUdpEntity, MediaPlayerEntity):
 
     @property
     def supported_features(self):
-        return (
-            MediaPlayerEntityFeature.PLAY
-            | MediaPlayerEntityFeature.PAUSE
-            | MediaPlayerEntityFeature.STOP
-            | MediaPlayerEntityFeature.VOLUME_SET
-            | MediaPlayerEntityFeature.VOLUME_MUTE
-            | MediaPlayerEntityFeature.SEEK
-            | MediaPlayerEntityFeature.TURN_OFF
-            | MediaPlayerEntityFeature.TURN_ON
-            | MediaPlayerEntityFeature.REPEAT_SET
-            | MediaPlayerEntityFeature.SHUFFLE_SET
-            | MediaPlayerEntityFeature.NEXT_TRACK
-            | MediaPlayerEntityFeature.PREVIOUS_TRACK
-            | MediaPlayerEntityFeature.SELECT_SOURCE
-            | MediaPlayerEntityFeature.VOLUME_STEP
-        )
+        """Features the connected model supports (see models.MODEL_CAPS)."""
+        return capabilities(self.oppo_model).features
 
     @property
     def extra_state_attributes(self):
@@ -382,7 +369,12 @@ class OppoUdpMediaPlayer(OppoUdpEntity, MediaPlayerEntity):
 
     async def async_select_source(self, source):
         """Select input source."""
-        await self.device.async_set_input_source(SetInputSource[source.replace(" ","_").upper()])
+        try:
+            input_source = SetInputSource[source.replace(" ","_").upper()]
+        except KeyError:
+            _LOGGER.warning("Unknown input source %r for this model", source)
+            return
+        await self.device.async_set_input_source(input_source)
 
     async def async_media_play(self):
         """Play media."""

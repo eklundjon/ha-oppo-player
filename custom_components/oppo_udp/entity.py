@@ -9,6 +9,7 @@ from homeassistant.helpers.entity import Entity
 
 from .const import DOMAIN, SIGNAL_CLIENT_CREATED, SIGNAL_CONNECTED, SIGNAL_DISCONNECTED
 from .controller import OppoController
+from .models import OppoModel, detect_model, display_name
 from .oppoudpsdk import OppoDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,16 +43,30 @@ class OppoUdpEntity(Entity):
         return self._host
 
     @property
+    def oppo_model(self) -> OppoModel:
+        """The most specific model known for capability/name resolution.
+
+        Prefers the discovery beacon's exact model (UDP-203/205) over the
+        coarser #QVR generation (which can't tell the two apart).
+        """
+        discovered = getattr(self._manager, "discovered_model", None)
+        if isinstance(discovered, OppoModel) and discovered is not OppoModel.UNKNOWN:
+            return discovered
+        device = getattr(self._manager, "device", None)
+        return detect_model(device.firmware_version if device else None)
+
+    @property
     def device_info(self) -> DeviceInfo:
         """Device info dictionary."""
         info = DeviceInfo(
             identifiers={(DOMAIN, self._identifier)},
             name=self._manager.config_entry.title,
             manufacturer="Oppo",
-            model="UDP-20x",
+            model=display_name(self.oppo_model),
         )
-        if self._manager.device:
-            info["sw_version"] = self._manager.device.firmware_version
+        firmware = self._manager.device.firmware_version if self._manager.device else None
+        if firmware:
+            info["sw_version"] = firmware
 
         return info
 

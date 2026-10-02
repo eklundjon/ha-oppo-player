@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -23,6 +23,21 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     yield
 
 
+@pytest.fixture(autouse=True)
+def _stub_discovery_socket():
+    """Never open the multicast discovery socket in tests.
+
+    async_start is best-effort in production, but the strict PHACC socket guard
+    fails a test's teardown on any socket.socket() attempt — even one we catch —
+    so stub it out. Tests exercise discovery via _handle/subscribe directly.
+    """
+    with patch(
+        "custom_components.oppo_udp.discovery.OppoDiscovery.async_start",
+        new_callable=AsyncMock,
+    ):
+        yield
+
+
 @pytest.fixture
 def mock_device():
     """A real OppoDevice wired to a mocked client.
@@ -39,7 +54,11 @@ def mock_device():
     client = MagicMock()
     client.async_send_command = AsyncMock()
     client.async_event = AsyncMock()
-    return OppoDevice(client)
+    device = OppoDevice(client)
+    # Default the test device to a UDP-20x (the full-capability model), the way
+    # a QVR reply would; per-model behavior is exercised in test_models.py.
+    device.firmware_version = "UDP20X-54-1127"
+    return device
 
 
 @pytest.fixture

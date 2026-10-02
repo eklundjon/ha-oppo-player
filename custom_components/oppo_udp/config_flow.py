@@ -25,6 +25,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
 )
 from homeassistant.const import CONF_DEVICE, CONF_HOST, CONF_PORT
+from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 
 from .connection import OppoConnection
 from .const import (
@@ -38,6 +39,7 @@ from .const import (
 )
 from .controller import entry_url
 from .exceptions import HaCannotConnect
+from .models import OppoModel, display_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -118,6 +120,11 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    # Filled in by the discovery steps (dhcp / integration_discovery).
+    _discovered_host: str | None = None
+    _discovered_port: int = DEFAULT_PORT
+    _discovered_model: OppoModel | None = None
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -129,6 +136,68 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Re-pick the connection type — e.g. to move to a serial gateway."""
         return self.async_show_menu(step_id="reconfigure", menu_options=_MENU_OPTIONS)
+
+    # ── Discovery: a confirm step, not the transport menu ──────────────────────
+    # A discovered player arrives with its address (and, from the beacon, its
+    # model), so it bypasses the transport picker and always uses socket://.
+
+    async def async_step_dhcp(self, discovery_info: DhcpServiceInfo) -> ConfigFlowResult:
+        """Player seen on the network (DHCP). Model is filled in later by QVR/beacon."""
+        return await self._async_discovered(discovery_info.ip, DEFAULT_PORT, None)
+
+    async def async_step_integration_discovery(
+        self, discovery_info: dict[str, Any]
+    ) -> ConfigFlowResult:
+        """Player heard on the multicast beacon; carries the exact model."""
+        return await self._async_discovered(
+            discovery_info["host"],
+            discovery_info.get("port", DEFAULT_PORT),
+            discovery_info.get("model"),
+        )
+
+    async def _async_discovered(
+        self, host: str, port: int, model: OppoModel | None
+    ) -> ConfigFlowResult:
+        # No stable hardware id exists in the protocol, so key discovery on the
+        # IP (consistent with how entries are keyed) — this also dedups repeated
+        # beacon/DHCP announcements while a flow is in progress.
+        await self.async_set_unique_id(host)
+        self._abort_if_unique_id_configured()
+        if self._url_configured(f"socket://{host}:{port}"):
+            return self.async_abort(reason="already_configured")
+        self._discovered_host = host
+        self._discovered_port = port
+        self._discovered_model = model if isinstance(model, OppoModel) else None
+        self.context["title_placeholders"] = {"name": self._discovered_title()}
+        return await self.async_step_discovery_confirm()
+
+    async def async_step_discovery_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm adding a discovered player, then probe + create the entry."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            url = f"socket://{self._discovered_host}:{self._discovered_port}"
+            result = await self._async_validate_and_finish(
+                url, DEFAULT_BAUDRATE, errors, title=self._discovered_title()
+            )
+            if result is not None:
+                return result
+        self._set_confirm_only()
+        return self.async_show_form(
+            step_id="discovery_confirm",
+            errors=errors,
+            description_placeholders={
+                "name": self._discovered_title(),
+                "host": self._discovered_host,
+            },
+        )
+
+    def _discovered_title(self) -> str:
+        """Friendly entry title for a discovered player (uses the model if known)."""
+        if self._discovered_model and self._discovered_model is not OppoModel.UNKNOWN:
+            return f"OPPO {display_name(self._discovered_model)}"
+        return f"OPPO UDP-20x ({self._discovered_host})"
 
     # ── Per-scheme connection steps (shared by add + reconfigure) ──────────────
 
@@ -216,9 +285,13 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def _async_validate_and_finish(
-        self, url: str, baudrate: int, errors: dict[str, str]
+        self, url: str, baudrate: int, errors: dict[str, str], *, title: str | None = None
     ) -> ConfigFlowResult | None:
-        """Dedup + probe; on success create/update the entry, else fill errors."""
+        """Dedup + probe; on success create/update the entry, else fill errors.
+
+        ``title`` overrides the default host-derived title (discovery passes a
+        friendly model-based name).
+        """
         entry = self._reconfigure_entry()
         if self._url_configured(url, entry.entry_id if entry else None):
             errors["base"] = "already_configured"
@@ -235,10 +308,12 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
             return None
 
         data = {CONF_URL: url, CONF_BAUDRATE: baudrate}
-        title = self._title_for(url)
+        resolved_title = title or self._title_for(url)
         if entry:
-            return self.async_update_reload_and_abort(entry, title=title, data=data)
-        return self.async_create_entry(title=title, data=data)
+            return self.async_update_reload_and_abort(
+                entry, title=resolved_title, data=data
+            )
+        return self.async_create_entry(title=resolved_title, data=data)
 
     @staticmethod
     def _title_for(url: str) -> str:
