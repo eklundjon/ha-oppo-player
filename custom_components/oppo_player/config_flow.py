@@ -373,9 +373,10 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def _url_configured(self, url: str, ignore_entry_id: str | None = None) -> bool:
         """Return True if another entry already resolves to this URL."""
+        # Ignored discoveries hold no settings, so there's no URL to compare.
         return any(
             entry_url(entry) == url
-            for entry in self._async_current_entries()
+            for entry in self._async_current_entries(include_ignore=False)
             if entry.entry_id != ignore_entry_id
         )
 

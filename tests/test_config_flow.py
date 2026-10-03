@@ -239,6 +239,21 @@ async def test_discovery_aborts_if_already_configured(hass):
     assert result["reason"] == "already_configured"
 
 
+async def test_discovery_skips_ignored_entries(hass):
+    # An ignored discovery is an entry with no settings; it mustn't break the
+    # duplicate check when another player turns up.
+    MockConfigEntry(
+        domain=DOMAIN, source="ignore", unique_id="192.168.1.70", data={}
+    ).add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "dhcp"},
+        data=DhcpServiceInfo(ip="192.168.1.71", hostname="oppo", macaddress="0022de112233"),
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "discovery_confirm"
+
+
 async def test_discovery_cannot_connect_reshows_confirm(hass):
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
