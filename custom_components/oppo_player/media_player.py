@@ -66,7 +66,7 @@ class OppoUdpMediaPlayer(OppoUdpEntity, MediaPlayerEntity):
     def __init__(self, host, name, identifier, manager, **kwargs):
         """Initialize the Oppo UDP media player."""
         super().__init__(host, name, identifier, manager, **kwargs)
-        musicbrainzngs.set_useragent("Python HA OppoUDP Integration","0.1.11","(https://github.com/eklundjon/ha-oppoudp)")
+        musicbrainzngs.set_useragent("Python HA OppoUDP Integration","0.1.11","(https://github.com/eklundjon/ha-oppo-player)")
         self._musicbrainz_info = None
 
     @property
