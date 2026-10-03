@@ -129,6 +129,9 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
     _discovered_model: OppoModel | None = None
     # The old oppo_udp entry being imported (see migration.py).
     _legacy_entry: ConfigEntry | None = None
+    # Set when a discovered player is imported from an old entry that held a
+    # different address: the import takes the discovered one.
+    _import_url: str | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -188,7 +191,21 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
         self._discovered_port = port
         self._discovered_model = model if isinstance(model, OppoModel) else None
         self.context["title_placeholders"] = {"name": self._discovered_title()}
+        # Old entries are still waiting, but none has this address: the player
+        # may be one of them at a new address, so offer the import as well.
+        if legacy_entries(self.hass):
+            return await self.async_step_discovery_legacy()
         return await self.async_step_discovery_confirm()
+
+    async def async_step_discovery_legacy(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Import the discovered player from an old entry, or add it as new."""
+        return self.async_show_menu(
+            step_id="discovery_legacy",
+            menu_options=["import_legacy_discovered", "discovery_confirm"],
+            description_placeholders={"host": self._discovered_host},
+        )
 
     async def async_step_discovery_confirm(
         self, user_input: dict[str, Any] | None = None
@@ -213,6 +230,13 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     # ── Import from the old oppo_udp domain ────────────────────────────────────
+
+    async def async_step_import_legacy_discovered(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Import an old player that has moved to the discovered address."""
+        self._import_url = f"socket://{self._discovered_host}:{self._discovered_port}"
+        return await self.async_step_import_legacy()
 
     async def async_step_import_legacy(
         self, user_input: dict[str, Any] | None = None
@@ -254,16 +278,24 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
                 description_placeholders={"name": legacy.title},
             )
 
-        url = entry_url(legacy)
-        if legacy.unique_id:
-            await self.async_set_unique_id(legacy.unique_id, raise_on_progress=False)
-            self._abort_if_unique_id_configured()
+        title = legacy.title
+        if self._import_url:
+            # The discovery already set the new address as the unique ID. An
+            # entry titled after its old address is retitled after the new one.
+            url = self._import_url
+            if title == socket_host(entry_url(legacy)):
+                title = socket_host(url)
+        else:
+            url = entry_url(legacy)
+            if legacy.unique_id:
+                await self.async_set_unique_id(legacy.unique_id, raise_on_progress=False)
+                self._abort_if_unique_id_configured()
         if self._url_configured(url):
             return self.async_abort(reason="already_configured")
         # No probe: the player may be off, and it was working under the old
         # domain. Setup moves the registry entries (migration.py).
         return self.async_create_entry(
-            title=legacy.title,
+            title=title,
             data={
                 CONF_URL: url,
                 CONF_BAUDRATE: legacy.data.get(CONF_BAUDRATE, DEFAULT_BAUDRATE),

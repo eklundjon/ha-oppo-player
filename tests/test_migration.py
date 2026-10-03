@@ -247,6 +247,72 @@ async def test_discovered_old_player_reminds_while_old_code_installed(hass):
     assert er.async_get(hass).async_get(PLAYER_ID).platform == LEGACY_DOMAIN
 
 
+MOVED_HOST = "192.168.1.99"
+
+
+async def _discover_moved_player(hass):
+    return await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "dhcp"},
+        data=DhcpServiceInfo(ip=MOVED_HOST, hostname="oppo", macaddress="0022de123456"),
+    )
+
+
+async def test_discovered_player_at_a_new_address_can_be_imported(hass):
+    """The player's address changed while it was on oppo_udp, so discovery
+    can't match it; it offers the import alongside adding a new player."""
+    legacy, device, _ = _legacy_player(hass)
+    result = await _discover_moved_player(hass)
+    assert result["type"] == FlowResultType.MENU
+    assert result["step_id"] == "discovery_legacy"
+    assert result["menu_options"] == ["import_legacy_discovered", "discovery_confirm"]
+
+    form = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "import_legacy_discovered"}
+    )
+    assert form["step_id"] == "import_legacy_confirm"
+    transport = FakeTransport()
+    p1, p2 = _patches(transport)
+    with p1, p2:
+        result = await hass.config_entries.flow.async_configure(form["flow_id"], {})
+        await hass.async_block_till_done()
+        entry = result["result"]
+        # The new address, not the old one; the user's title is kept.
+        assert entry.data == {"url": f"socket://{MOVED_HOST}:23", "baudrate": 9600}
+        assert entry.unique_id == MOVED_HOST
+        assert entry.title == LEGACY_TITLE
+        assert hass.config_entries.async_get_entry(legacy.entry_id) is None
+        assert er.async_get(hass).async_get(PLAYER_ID).config_entry_id == entry.entry_id
+        assert dr.async_get(hass).async_get(device.id).identifiers == {
+            (DOMAIN, entry.entry_id)
+        }
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done()
+
+
+async def test_import_at_a_new_address_retitles_an_address_title(hass):
+    _legacy_player(hass, title=MOCK_HOST)
+    result = await _discover_moved_player(hass)
+    form = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "import_legacy_discovered"}
+    )
+    with patch(
+        "custom_components.oppo_player.async_setup_entry", AsyncMock(return_value=True)
+    ):
+        result = await hass.config_entries.flow.async_configure(form["flow_id"], {})
+    assert result["title"] == MOVED_HOST
+
+
+async def test_discovered_player_at_a_new_address_can_be_added_as_new(hass):
+    _legacy_player(hass)
+    result = await _discover_moved_player(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "discovery_confirm"}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "discovery_confirm"
+
+
 async def test_ignored_old_discoveries_are_not_offered(hass):
     """An ignored oppo_udp discovery holds no settings, so there's nothing to import."""
     MockConfigEntry(
