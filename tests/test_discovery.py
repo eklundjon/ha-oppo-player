@@ -1,8 +1,8 @@
 """OPPO multicast discovery: beacon parsing + subscription (no real socket)."""
 from __future__ import annotations
 
-from custom_components.oppo_udp.discovery import OppoDiscovery, _field
-from custom_components.oppo_udp.models import OppoModel
+from custom_components.oppo_player.discovery import OppoDiscovery, _field
+from custom_components.oppo_player.models import OppoModel
 
 BEACON_205 = b"Notify: OPPO Player Start\r\nServer Name: OPPO UDP-205\r\n"
 BEACON_203 = b"Notify: OPPO Player Start\nServer Name: OPPO UDP-203\n"

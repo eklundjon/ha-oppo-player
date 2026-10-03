@@ -32,7 +32,7 @@ name: Release
 on:
   push:
     branches: [master]
-    paths: ["custom_components/oppo_udp/manifest.json"]
+    paths: ["custom_components/oppo_player/manifest.json"]
   workflow_dispatch:
 
 permissions:
@@ -52,7 +52,7 @@ jobs:
       - name: Read version from manifest
         id: v
         run: |
-          version=$(jq -er .version custom_components/oppo_udp/manifest.json)
+          version=$(jq -er .version custom_components/oppo_player/manifest.json)
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           # Anything but a plain X.Y.Z (1.0.0rc1, ...) is drafted as a
@@ -68,7 +68,7 @@ jobs:
         id: notes
         env:
           VERSION: ${{ steps.v.outputs.version }}
-          MANIFEST: custom_components/oppo_udp/manifest.json
+          MANIFEST: custom_components/oppo_player/manifest.json
         run: |
           # The bump commit is the newest non-merge commit that touched the
           # manifest. Its body (minus trailers like Co-Authored-By) goes above

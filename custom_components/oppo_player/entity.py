@@ -3,6 +3,7 @@
 import logging
 
 from homeassistant.core import callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
@@ -69,6 +70,26 @@ class OppoUdpEntity(Entity):
             info["sw_version"] = firmware
 
         return info
+
+    @callback
+    def async_sync_device_info(self) -> None:
+        """Write the model and firmware to the device registry once they're known.
+
+        HA reads ``device_info`` only when the entity is added, which happens
+        before the connection opens, so without this the device page would keep
+        the "OPPO Player" placeholder and no firmware version forever.
+        """
+        if self.device_entry is None:
+            return
+        registry = dr.async_get(self.hass)
+        current = registry.async_get(self.device_entry.id)
+        if current is None:
+            return
+        info = self.device_info
+        model = info.get("model")
+        firmware = info.get("sw_version") or current.sw_version
+        if (current.model, current.sw_version) != (model, firmware):
+            registry.async_update_device(current.id, model=model, sw_version=firmware)
 
     async def async_added_to_hass(self):
         """Handle when an entity is about to be added to Home Assistant."""

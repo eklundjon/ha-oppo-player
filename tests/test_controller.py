@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from custom_components.oppo_udp.controller import OppoController, entry_url
-from custom_components.oppo_udp.oppoudpsdk import OppoRemoteCode, PowerStatus
-from custom_components.oppo_udp.oppoudpsdk.const import EVENT_DEVICE_STATE_UPDATED
+from custom_components.oppo_player.controller import OppoController, entry_url
+from custom_components.oppo_player.oppoudpsdk import OppoRemoteCode, PowerStatus
+from custom_components.oppo_player.oppoudpsdk.const import EVENT_DEVICE_STATE_UPDATED
 from tests.conftest import ENTRY_DATA, MOCK_HOST, MOCK_PORT
 from tests.test_connection import FakeTransport, _wait_for
 
@@ -13,10 +13,10 @@ from tests.test_connection import FakeTransport, _wait_for
 def _patches(transport):
     return (
         patch(
-            "custom_components.oppo_udp.connection.serialx.open_serial_connection",
+            "custom_components.oppo_player.connection.serialx.open_serial_connection",
             side_effect=transport.open,
         ),
-        patch("custom_components.oppo_udp.controller.SEND_INTERVAL", 0),
+        patch("custom_components.oppo_player.controller.SEND_INTERVAL", 0),
     )
 
 
@@ -30,7 +30,7 @@ def test_entry_url_prefers_stored_url(hass):
     from pytest_homeassistant_custom_component.common import MockConfigEntry
 
     entry = MockConfigEntry(
-        domain="oppo_udp", data={**ENTRY_DATA, "url": "rfc2217://gw:5000"}
+        domain="oppo_player", data={**ENTRY_DATA, "url": "rfc2217://gw:5000"}
     )
     assert entry_url(entry) == "rfc2217://gw:5000"
 
@@ -84,7 +84,7 @@ async def test_reconnect_repulls_state(hass, config_entry):
     transport = FakeTransport()
     p1, p2 = _patches(transport)
     with (
-        patch("custom_components.oppo_udp.connection.RECONNECT_DELAY", 0),
+        patch("custom_components.oppo_player.connection.RECONNECT_DELAY", 0),
         p1,
         p2,
     ):

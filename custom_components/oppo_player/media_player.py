@@ -11,13 +11,10 @@ from homeassistant.components.media_player.const import (
     MediaType,
     RepeatMode,
 )
-from homeassistant.const import (
-    CONF_HOST,
-)
 from homeassistant.core import callback
 
 from .const import DOMAIN
-from .controller import OppoController
+from .controller import OppoController, entry_url
 from .entity import OppoUdpEntity
 from .models import capabilities
 from .musicbrainz import MusicBrainzInfo, async_musicbrainz_get_info
@@ -43,7 +40,8 @@ PARALLEL_UPDATES = 0
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Load Oppo UDP media player based on a config entry."""
-    host = config_entry.data[CONF_HOST]
+    # Entries made by the connection menu store only a URL, not a host.
+    host = entry_url(config_entry)
     manager = config_entry.runtime_data
     async_add_entities([OppoUdpMediaPlayer(host, DOMAIN, config_entry.entry_id, manager)])
 
@@ -83,6 +81,8 @@ class OppoUdpMediaPlayer(OppoUdpEntity, MediaPlayerEntity):
 
     async def _on_device_state_updated(self, device: OppoDevice):
         """Handle a device state update event"""
+        # One entity per device is enough to keep the device page current.
+        self.async_sync_device_info()
         self.async_write_ha_state()
 
     async def _on_disc_id_changed(self, device: OppoDevice):

@@ -13,11 +13,11 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.oppo_udp.config_flow import _parse_url
-from custom_components.oppo_udp.const import DEFAULT_BAUDRATE, DOMAIN
-from custom_components.oppo_udp.controller import entry_url
-from custom_components.oppo_udp.exceptions import HaCannotConnect
-from custom_components.oppo_udp.models import OppoModel
+from custom_components.oppo_player.config_flow import _parse_url
+from custom_components.oppo_player.const import DEFAULT_BAUDRATE, DOMAIN
+from custom_components.oppo_player.controller import entry_url
+from custom_components.oppo_player.exceptions import HaCannotConnect
+from custom_components.oppo_player.models import OppoModel
 from tests.conftest import ENTRY_DATA, MOCK_HOST, MOCK_PORT
 
 _MENU = {"socket", "rfc2217", "esphome", "serial"}
@@ -26,7 +26,7 @@ _MENU = {"socket", "rfc2217", "esphome", "serial"}
 def _patch_probe(error=None):
     """Patch the device probe so no real transport is opened."""
     return patch(
-        "custom_components.oppo_udp.config_flow._probe", AsyncMock(side_effect=error)
+        "custom_components.oppo_player.config_flow._probe", AsyncMock(side_effect=error)
     )
 
 
@@ -34,7 +34,7 @@ def _patch_setup():
     """A CREATE_ENTRY (or reconfigure reload) would build a real controller and
     open a transport; stub setup so flow tests stay offline."""
     return patch(
-        "custom_components.oppo_udp.async_setup_entry", AsyncMock(return_value=True)
+        "custom_components.oppo_player.async_setup_entry", AsyncMock(return_value=True)
     )
 
 
@@ -239,6 +239,21 @@ async def test_discovery_aborts_if_already_configured(hass):
     assert result["reason"] == "already_configured"
 
 
+async def test_discovery_skips_ignored_entries(hass):
+    # An ignored discovery is an entry with no settings; it mustn't break the
+    # duplicate check when another player turns up.
+    MockConfigEntry(
+        domain=DOMAIN, source="ignore", unique_id="192.168.1.70", data={}
+    ).add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": "dhcp"},
+        data=DhcpServiceInfo(ip="192.168.1.71", hostname="oppo", macaddress="0022de112233"),
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "discovery_confirm"
+
+
 async def test_discovery_cannot_connect_reshows_confirm(hass):
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
@@ -260,7 +275,7 @@ def test_manifest_dhcp_matches_oppo_oui():
 
     manifest = json.loads(
         (Path(__file__).parent.parent
-         / "custom_components" / "oppo_udp" / "manifest.json").read_text()
+         / "custom_components" / "oppo_player" / "manifest.json").read_text()
     )
     matchers = {m.get("macaddress") for m in manifest.get("dhcp", [])}
     assert "0022DE*" in matchers

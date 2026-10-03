@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from custom_components.oppo_udp.oppoudpsdk import OppoRemoteCode, PlayStatus, PowerStatus
+from custom_components.oppo_player.oppoudpsdk import OppoRemoteCode, PlayStatus, PowerStatus
 
 
 async def test_power_off_ignores_stale_solicited_on(mock_device):

@@ -32,7 +32,7 @@ _LOGGER = logging.getLogger(__name__)
 
 MCAST_GROUP = "239.255.255.251"
 MCAST_PORT = 7624
-DATA_KEY = "oppo_udp_discovery"
+DATA_KEY = "oppo_player_discovery"
 
 
 def _field(text: str, key: str) -> str | None:

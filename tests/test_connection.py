@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from custom_components.oppo_udp.connection import OppoConnection
+from custom_components.oppo_player.connection import OppoConnection
 
 MOCK_URL = "socket://192.168.1.50:23"
 
@@ -80,7 +80,7 @@ def transport():
 
 def _patch(transport):
     return patch(
-        "custom_components.oppo_udp.connection.serialx.open_serial_connection",
+        "custom_components.oppo_player.connection.serialx.open_serial_connection",
         side_effect=transport.open,
     )
 
@@ -147,7 +147,7 @@ async def test_reconnect_after_drop_fires_callbacks(transport):
         on_connection_restored=restored.set,
     )
     with (
-        patch("custom_components.oppo_udp.connection.RECONNECT_DELAY", 0),
+        patch("custom_components.oppo_player.connection.RECONNECT_DELAY", 0),
         _patch(transport),
     ):
         await conn.start()
@@ -161,7 +161,7 @@ async def test_reconnect_after_drop_fires_callbacks(transport):
 async def test_request_query_is_paced(transport):
     conn = OppoConnection(MOCK_URL)
     with (
-        patch("custom_components.oppo_udp.connection.QUERY_INTERVAL", 0),
+        patch("custom_components.oppo_player.connection.QUERY_INTERVAL", 0),
         _patch(transport),
     ):
         await conn.start()

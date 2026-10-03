@@ -1,5 +1,5 @@
 {
-  "domain": "oppo_udp",
+  "domain": "oppo_player",
   "name": "Oppo UDP-20x",
   "codeowners": ["@eklundjon"],
   "config_flow": true,

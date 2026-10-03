@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.oppo_udp.oppoudpsdk import DiscType, PlayStatus, RepeatMode
-from custom_components.oppo_udp.oppoudpsdk.response.response import _parse_enum
+from custom_components.oppo_player.oppoudpsdk import DiscType, PlayStatus, RepeatMode
+from custom_components.oppo_player.oppoudpsdk.response.response import _parse_enum
 
 
 @pytest.mark.parametrize(

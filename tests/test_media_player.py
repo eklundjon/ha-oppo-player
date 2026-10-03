@@ -8,10 +8,10 @@ from homeassistant.components.media_player import (
     RepeatMode,
 )
 
-from custom_components.oppo_udp.const import DOMAIN
-from custom_components.oppo_udp.media_player import OppoUdpMediaPlayer
-from custom_components.oppo_udp.models import OppoModel
-from custom_components.oppo_udp.oppoudpsdk import DiscType, PlayStatus, PowerStatus
+from custom_components.oppo_player.const import DOMAIN
+from custom_components.oppo_player.media_player import OppoUdpMediaPlayer
+from custom_components.oppo_player.models import OppoModel
+from custom_components.oppo_player.oppoudpsdk import DiscType, PlayStatus, PowerStatus
 from tests.conftest import MOCK_HOST
 
 

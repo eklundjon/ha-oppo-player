@@ -50,7 +50,7 @@ jobs:
             phacc: "0.13.215"   # Home Assistant 2025.2.5 (needs Python >=3.13)
             python: "3.13"
           - name: "HA latest"
-            phacc: "0.13.345"   # Home Assistant 2026.7.1 (needs Python >=3.14)
+            phacc: "0.13.367"   # Home Assistant 2026.9.4 (needs Python >=3.14)
             python: "3.14"
     steps:
       - uses: actions/checkout@v7
@@ -72,5 +72,5 @@ jobs:
         # The floor is a starting point; ratchet it up as the suite grows rather
         # than letting coverage drift down to meet it.
         run: >-
-          pytest -q --cov=custom_components.oppo_udp
+          pytest -q --cov=custom_components.oppo_player
           --cov-report=term-missing --cov-fail-under=75

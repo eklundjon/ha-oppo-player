@@ -42,7 +42,7 @@ body:
     id: integration-version
     attributes:
       label: Integration version
-      description: Shown in HACS, or in `custom_components/oppo_udp/manifest.json`.
+      description: Shown in HACS, or in `custom_components/oppo_player/manifest.json`.
       placeholder: "0.3.0"
     validations:
       required: true

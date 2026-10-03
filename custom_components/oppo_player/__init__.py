@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import discovery_flow
 
-from .const import DEFAULT_PORT, DOMAIN, PLATFORMS
+from .const import CONF_LEGACY_ENTRY_ID, DEFAULT_PORT, DOMAIN, PLATFORMS
 from .controller import OppoController, entry_url
 from .discovery import (
     DATA_KEY,
@@ -19,6 +19,7 @@ from .discovery import (
     async_acquire_discovery,
     async_release_discovery,
 )
+from .migration import async_migrate_legacy_entry
 
 OppoConfigEntry = ConfigEntry[OppoController]
 
@@ -26,7 +27,7 @@ CONFIG_SCHEMA = cv.deprecated(DOMAIN)
 
 # Set once the beacon->flow trigger is registered, so it happens a single time
 # across all entries and can be torn down with the shared listener.
-FLOW_TRIGGER_KEY = "oppo_udp_discovery_flow_trigger"
+FLOW_TRIGGER_KEY = "oppo_player_discovery_flow_trigger"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,6 +36,11 @@ async def async_setup(hass: HomeAssistant, config: dict):
 
 async def async_setup_entry(hass: HomeAssistant, entry: OppoConfigEntry):
     """Set up the component."""
+
+    # An entry imported from the old oppo_udp domain takes over that entry's
+    # entities and device before any platform creates new ones.
+    if CONF_LEGACY_ENTRY_ID in entry.data:
+        await async_migrate_legacy_entry(hass, entry)
 
     controller = OppoController(hass, entry)
     entry.runtime_data = controller

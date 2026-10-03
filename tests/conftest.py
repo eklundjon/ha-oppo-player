@@ -1,4 +1,4 @@
-"""Shared fixtures for oppo_udp tests."""
+"""Shared fixtures for oppo_player tests."""
 from __future__ import annotations
 
 import sys
@@ -10,7 +10,7 @@ import pytest
 # Make custom_components importable from the repo root.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from custom_components.oppo_udp.const import DOMAIN  # noqa: E402
+from custom_components.oppo_player.const import DOMAIN  # noqa: E402
 
 MOCK_HOST = "192.168.1.50"
 MOCK_PORT = 23
@@ -32,7 +32,7 @@ def _stub_discovery_socket():
     so stub it out. Tests exercise discovery via _handle/subscribe directly.
     """
     with patch(
-        "custom_components.oppo_udp.discovery.OppoDiscovery.async_start",
+        "custom_components.oppo_player.discovery.OppoDiscovery.async_start",
         new_callable=AsyncMock,
     ):
         yield
@@ -49,7 +49,7 @@ def mock_device():
     device set-method delegates to client.async_send_command, so mocking that
     one method lets the whole command path run.
     """
-    from custom_components.oppo_udp.oppoudpsdk import OppoDevice
+    from custom_components.oppo_player.oppoudpsdk import OppoDevice
 
     client = MagicMock()
     client.async_send_command = AsyncMock()

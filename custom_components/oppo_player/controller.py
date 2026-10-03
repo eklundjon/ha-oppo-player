@@ -72,7 +72,7 @@ def entry_url(config_entry: ConfigEntry) -> str:
     return f"socket://{host}:{port}"
 
 
-def _socket_host(url: str) -> str | None:
+def socket_host(url: str) -> str | None:
     """Return the host of a ``socket://host:port`` URL, else None.
 
     Only native-IP entries can be matched to a discovery beacon (which carries
@@ -143,7 +143,7 @@ class OppoController:
 
     async def attach_discovery(self, discovery: OppoDiscovery) -> None:
         """Resolve this player's IP and subscribe to beacons for its model."""
-        host = _socket_host(entry_url(self._config_entry))
+        host = socket_host(entry_url(self._config_entry))
         if host is None:
             return
         try:
