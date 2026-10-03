@@ -12,5 +12,5 @@
   "issue_tracker": "https://github.com/eklundjon/ha-oppo-player/issues",
   "loggers": ["musicbrainzngs"],
   "requirements": ["magicattr==0.1.5", "musicbrainzngs==0.7.1", "serialx>=1.7.3,<2"],
-  "version": "0.3.0"
+  "version": "0.3.1"
 }
