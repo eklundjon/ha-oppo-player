@@ -130,3 +130,11 @@ async def test_shuffle_noop_for_video(mock_manager):
     await _player(mock_manager).async_set_shuffle(True)
     # Shuffle is music-only by design; a DVD sends nothing.
     assert device._client.async_send_command.await_count == 0
+
+
+async def test_no_cover_art_is_a_pair_of_nones(mock_manager):
+    # HA unpacks async_get_media_image's result; a bare None made the image
+    # request fail with a 500 on any CD without cover art.
+    mock_manager.device.disc_type = DiscType.CDDA
+    player = _player(mock_manager)
+    assert await player.async_get_media_image() == (None, None)

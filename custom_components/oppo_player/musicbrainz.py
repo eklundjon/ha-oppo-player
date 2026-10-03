@@ -41,12 +41,14 @@ def _parse_response(disc_id: str, response: dict) -> MusicBrainzInfo:
       artist=response["cdstub"]["artist"],
       title=response["cdstub"]["title"]
     )
+  return MusicBrainzInfo(disc_id)
 
 def _info_from_release(disc_id: str, rel: dict) -> MusicBrainzInfo:
   mbid = rel["id"]
   title = rel["title"]
   artist = None
   tracks = {}
+  image = None
 
   _LOGGER.debug(f"Found release {mbid}, title={title}")
 

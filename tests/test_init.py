@@ -1,6 +1,8 @@
 """Setup/unload wiring: the config entry runs on an OppoController."""
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from unittest.mock import patch
 
 from custom_components.oppo_player.controller import OppoController
@@ -38,6 +40,23 @@ async def test_setup_wires_controller_and_entities(hass, config_entry):
 
     # connection torn down on unload.
     assert transport.writer.is_closing()
+
+
+async def test_musicbrainz_user_agent_names_this_integration(hass, config_entry):
+    transport = FakeTransport()
+    p1, p2 = _patches(transport)
+    with p1, p2, patch(
+        "custom_components.oppo_player.media_player.musicbrainzngs.set_useragent"
+    ) as set_useragent:
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+        manifest_path = Path(__file__).parent.parent / "custom_components/oppo_player/manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        set_useragent.assert_called_once_with(
+            "ha-oppo-player", manifest["version"], manifest["documentation"]
+        )
+        assert await hass.config_entries.async_unload(config_entry.entry_id)
+        await hass.async_block_till_done()
 
 
 async def test_url_only_entry_creates_entities(hass):

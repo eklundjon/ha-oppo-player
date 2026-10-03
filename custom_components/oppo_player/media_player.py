@@ -12,6 +12,7 @@ from homeassistant.components.media_player.const import (
     RepeatMode,
 )
 from homeassistant.core import callback
+from homeassistant.loader import async_get_integration
 
 from .const import DOMAIN
 from .controller import OppoController, entry_url
@@ -43,6 +44,11 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     # Entries made by the connection menu store only a URL, not a host.
     host = entry_url(config_entry)
     manager = config_entry.runtime_data
+    # MusicBrainz asks clients to identify themselves accurately.
+    integration = await async_get_integration(hass, DOMAIN)
+    musicbrainzngs.set_useragent(
+        "ha-oppo-player", str(integration.version), integration.documentation
+    )
     async_add_entities([OppoUdpMediaPlayer(host, DOMAIN, config_entry.entry_id, manager)])
 
 class DeltaTemplate(Template):
@@ -66,7 +72,6 @@ class OppoUdpMediaPlayer(OppoUdpEntity, MediaPlayerEntity):
     def __init__(self, host, name, identifier, manager, **kwargs):
         """Initialize the Oppo UDP media player."""
         super().__init__(host, name, identifier, manager, **kwargs)
-        musicbrainzngs.set_useragent("Python HA OppoUDP Integration","0.1.11","(https://github.com/eklundjon/ha-oppo-player)")
         self._musicbrainz_info = None
 
     @property
@@ -261,7 +266,8 @@ class OppoUdpMediaPlayer(OppoUdpEntity, MediaPlayerEntity):
         if self.media_content_type == MediaType.MUSIC:
             if self.musicbrainz_info and self.musicbrainz_info.image:
                 return self.musicbrainz_info.image, "image/jpeg"
-        return None
+        # HA unpacks the result, so "no image" is a pair.
+        return None, None
 
     @property
     def source(self):
