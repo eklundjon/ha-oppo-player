@@ -63,6 +63,14 @@
         "title": "Oppo UDP-20x",
         "description": "Add {name} ({host}) to Home Assistant?"
       },
+      "discovery_legacy": {
+        "title": "Oppo UDP-20x",
+        "description": "Home Assistant found an OPPO player at {host}. If it's a player you set up in the old Oppo UDP-20x integration (oppo_udp) under a different address, import it: it keeps its entities, names, areas and history, and moves to {host}.",
+        "menu_options": {
+          "import_legacy_discovered": "Import a player from the old integration at this address",
+          "discovery_confirm": "Add it as a new player"
+        }
+      },
       "import_legacy": {
         "title": "Import a player",
         "description": "Choose the player to import from the old Oppo UDP-20x integration. It keeps its entities, names, areas and history.",
