@@ -12,9 +12,11 @@ are migrated to ``socket://host:port`` at read time, so they need no re-add.
 """
 from __future__ import annotations
 
+import importlib
 import ipaddress
 import logging
 import re
+import urllib.parse
 from typing import Any
 
 import voluptuous as vol
@@ -31,9 +33,11 @@ from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from .connection import OppoConnection
 from .const import (
     CONF_BAUDRATE,
+    CONF_ENCRYPTION_KEY,
     CONF_LEGACY_ENTRY_ID,
     CONF_URL,
     DEFAULT_BAUDRATE,
+    DEFAULT_ESPHOME_PORT,
     DEFAULT_GATEWAY_PORT,
     DEFAULT_PORT,
     DEFAULT_SERIAL_DEVICE,
@@ -75,6 +79,18 @@ def _network_schema(host: str = "", port: int = DEFAULT_PORT) -> vol.Schema:
     )
 
 
+def _esphome_schema(
+    host: str = "", port: int = DEFAULT_ESPHOME_PORT, key: str = ""
+) -> vol.Schema:
+    return vol.Schema(
+        {
+            vol.Required(CONF_HOST, default=host): str,
+            vol.Required(CONF_PORT, default=port): int,
+            vol.Optional(CONF_ENCRYPTION_KEY, description={"suggested_value": key}): str,
+        }
+    )
+
+
 def _serial_schema(
     device: str = DEFAULT_SERIAL_DEVICE, baudrate: int = DEFAULT_BAUDRATE
 ) -> vol.Schema:
@@ -95,9 +111,32 @@ def _parse_url(url: str) -> tuple[str, str, int | None, str]:
     for scheme in _NETWORK_SCHEMES:
         prefix = f"{scheme}://"
         if url.startswith(prefix):
-            host, _, port = url[len(prefix):].partition(":")
+            address = url[len(prefix):].partition("?")[0]
+            host, _, port = address.partition(":")
             return scheme, host, (int(port) if port.isdigit() else None), ""
     return "serial", "", None, url
+
+
+def _url_key(url: str) -> str:
+    """The ESPHome encryption key carried in a serialx URL, or ""."""
+    query = urllib.parse.urlparse(url).query
+    return urllib.parse.parse_qs(query).get("key", [""])[0]
+
+
+async def _async_esphome_supported(hass) -> bool:
+    """Return True if serialx's ESPHome transport can load here.
+
+    It needs aioesphomeapi 44.17+, which comes with Home Assistant's own ESPHome
+    integration. Requiring it ourselves would fight that integration's pin on
+    older Home Assistant versions, so the option is only offered where it works.
+    """
+    try:
+        await hass.async_add_executor_job(
+            importlib.import_module, "serialx.platforms.serial_esphome"
+        )
+    except ImportError:
+        return False
+    return True
 
 
 async def _probe(url: str, baudrate: int) -> None:
@@ -141,7 +180,7 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
         If players are still configured under the old oppo_udp domain, offer to
         import them first, so they keep their entities and history.
         """
-        options = list(_MENU_OPTIONS)
+        options = await self._async_menu_options()
         if legacy_entries(self.hass):
             options.insert(0, "import_legacy")
         return self.async_show_menu(step_id="user", menu_options=options)
@@ -150,7 +189,15 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Re-pick the connection type — e.g. to move to a serial gateway."""
-        return self.async_show_menu(step_id="reconfigure", menu_options=_MENU_OPTIONS)
+        return self.async_show_menu(
+            step_id="reconfigure", menu_options=await self._async_menu_options()
+        )
+
+    async def _async_menu_options(self) -> list[str]:
+        options = list(_MENU_OPTIONS)
+        if not await _async_esphome_supported(self.hass):
+            options.remove("esphome")
+        return options
 
     # ── Discovery: a confirm step, not the transport menu ──────────────────────
     # A discovered player arrives with its address (and, from the beacon, its
@@ -341,7 +388,32 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_esphome(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        return await self._async_network_step("esphome", user_input)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            host, port = user_input[CONF_HOST], user_input[CONF_PORT]
+            key = user_input.get(CONF_ENCRYPTION_KEY, "").strip()
+            if not host_valid(host):
+                errors[CONF_HOST] = "invalid_host"
+            else:
+                url = f"esphome://{host}:{port}"
+                if key:
+                    # The key is base64; "+" would otherwise decode as a space.
+                    url += "?" + urllib.parse.urlencode({"key": key})
+                result = await self._async_validate_and_finish(
+                    url, DEFAULT_BAUDRATE, errors
+                )
+                if result is not None:
+                    return result
+        else:
+            host, port = self._network_defaults("esphome")
+            key = ""
+            if (entry := self._reconfigure_entry()) and entry_url(entry).startswith(
+                "esphome://"
+            ):
+                key = _url_key(entry_url(entry))
+        return self.async_show_form(
+            step_id="esphome", data_schema=_esphome_schema(host, port, key), errors=errors
+        )
 
     async def _async_network_step(
         self, scheme: str, user_input: dict[str, Any] | None
@@ -389,7 +461,10 @@ class OppoUdpConfigFlow(ConfigFlow, domain=DOMAIN):
         return self._get_reconfigure_entry()
 
     def _network_defaults(self, scheme: str) -> tuple[str, int]:
-        default_port = DEFAULT_PORT if scheme == "socket" else DEFAULT_GATEWAY_PORT
+        default_port = {
+            "socket": DEFAULT_PORT,
+            "esphome": DEFAULT_ESPHOME_PORT,
+        }.get(scheme, DEFAULT_GATEWAY_PORT)
         if entry := self._reconfigure_entry():
             kind, host, port, _ = _parse_url(entry_url(entry))
             if kind == scheme:

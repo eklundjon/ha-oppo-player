@@ -13,7 +13,11 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.oppo_player.config_flow import _parse_url
+from custom_components.oppo_player.config_flow import (
+    _async_esphome_supported,
+    _parse_url,
+    _url_key,
+)
 from custom_components.oppo_player.const import DEFAULT_BAUDRATE, DOMAIN
 from custom_components.oppo_player.controller import entry_url
 from custom_components.oppo_player.exceptions import HaCannotConnect
@@ -21,6 +25,17 @@ from custom_components.oppo_player.models import OppoModel
 from tests.conftest import ENTRY_DATA, MOCK_HOST, MOCK_PORT
 
 _MENU = {"socket", "rfc2217", "esphome", "serial"}
+
+
+@pytest.fixture(autouse=True)
+def esphome_supported():
+    """Offer the ESPHome option. Whether it's offered depends on the
+    aioesphomeapi installed with Home Assistant, which tests don't control."""
+    with patch(
+        "custom_components.oppo_player.config_flow._async_esphome_supported",
+        AsyncMock(return_value=True),
+    ) as supported:
+        yield supported
 
 
 def _patch_probe(error=None):
@@ -60,6 +75,24 @@ async def test_user_menu_lists_all_transports(hass):
     assert set(result["menu_options"]) == _MENU
 
 
+async def test_esphome_is_hidden_where_it_cannot_load(hass, esphome_supported):
+    esphome_supported.return_value = False
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+    assert set(result["menu_options"]) == _MENU - {"esphome"}
+
+
+@pytest.mark.parametrize(("error", "expected"), [(None, True), (ImportError, False)])
+async def test_esphome_support_follows_whether_serialx_can_load_it(hass, error, expected):
+    with patch(
+        "custom_components.oppo_player.config_flow.importlib.import_module",
+        side_effect=error,
+    ) as import_module:
+        assert await _async_esphome_supported(hass) is expected
+    import_module.assert_called_once_with("serialx.platforms.serial_esphome")
+
+
 # ── successful adds ───────────────────────────────────────────────────────────
 
 async def test_socket_success(hass):
@@ -94,6 +127,40 @@ async def test_network_scheme_builds_url(hass, step, user_input, expected_url):
         await hass.async_block_till_done()
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["data"]["url"] == expected_url
+
+
+async def test_esphome_defaults_to_the_api_port(hass):
+    form = await _select(hass, "esphome")
+    defaults = {str(k): k.default() for k in form["data_schema"].schema if callable(k.default)}
+    assert defaults == {"host": "", "port": 6053}
+
+
+async def test_esphome_encryption_key_goes_in_the_url(hass):
+    key = "AbC+/dEf123="
+    form = await _select(hass, "esphome")
+    with _patch_probe(), _patch_setup():
+        result = await hass.config_entries.flow.async_configure(
+            form["flow_id"], {"host": "proxy.local", "port": 6053, "encryption_key": key}
+        )
+        await hass.async_block_till_done()
+    url = result["data"]["url"]
+    # Encoded, so serialx's query parsing gets the key back intact.
+    assert url == "esphome://proxy.local:6053?key=AbC%2B%2FdEf123%3D"
+    assert _url_key(url) == key
+    assert _parse_url(url) == ("esphome", "proxy.local", 6053, "")
+
+
+async def test_reconfigure_esphome_keeps_the_encryption_key(hass):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"url": "esphome://proxy.local:6053?key=AbC%2B%3D", "baudrate": 9600},
+    )
+    entry.add_to_hass(hass)
+    form = await _select(hass, "esphome", source="reconfigure", entry_id=entry.entry_id)
+    suggested = {
+        str(k): (k.description or {}).get("suggested_value") for k in form["data_schema"].schema
+    }
+    assert suggested["encryption_key"] == "AbC+="
 
 
 async def test_serial_success(hass):
@@ -172,6 +239,7 @@ async def test_reconfigure_switches_transport_and_replaces_data(hass, config_ent
         ("socket://h:23", ("socket", "h", 23, "")),
         ("rfc2217://gw:5000", ("rfc2217", "gw", 5000, "")),
         ("esphome://p:6638", ("esphome", "p", 6638, "")),
+        ("esphome://p:6053?key=abc", ("esphome", "p", 6053, "")),
         ("/dev/ttyUSB0", ("serial", "", None, "/dev/ttyUSB0")),
     ],
 )

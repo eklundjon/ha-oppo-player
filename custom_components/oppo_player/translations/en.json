@@ -48,7 +48,12 @@
         "description": "Address of the ESPHome device proxying the player's RS-232 port.",
         "data": {
           "host": "Host name / IP",
-          "port": "Port"
+          "port": "Port",
+          "encryption_key": "Encryption key"
+        },
+        "data_description": {
+          "port": "The ESPHome API port, normally 6053",
+          "encryption_key": "The device's API encryption key, from its YAML (api: encryption: key:). Leave it empty if the device doesn't use encryption."
         }
       },
       "serial": {
