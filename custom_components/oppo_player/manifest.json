@@ -6,10 +6,10 @@
   "dhcp": [
     { "macaddress": "0022DE*" }
   ],
-  "documentation": "https://github.com/eklundjon/ha-oppoudp",
+  "documentation": "https://github.com/eklundjon/ha-oppo-player",
   "integration_type": "device",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/eklundjon/ha-oppoudp/issues",
+  "issue_tracker": "https://github.com/eklundjon/ha-oppo-player/issues",
   "loggers": ["musicbrainzngs"],
   "requirements": ["magicattr==0.1.5", "musicbrainzngs==0.7.1", "serialx>=1.7.3,<2"],
   "version": "0.3.0"

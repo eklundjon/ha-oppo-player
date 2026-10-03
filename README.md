@@ -34,9 +34,9 @@ This is a fork of [simbaja/ha_oppoudp](https://github.com/simbaja/ha_oppoudp). S
 
 This repository isn't in the HACS default store, so add it as a custom repository. The badge does that for you:
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=eklundjon&repository=ha-oppoudp&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=eklundjon&repository=ha-oppo-player&category=integration)
 
-Or, in HACS, open the menu, choose **Custom repositories**, and add `https://github.com/eklundjon/ha-oppoudp` with the type **Integration**. Then download **Oppo UDP-20x** and restart Home Assistant.
+Or, in HACS, open the menu, choose **Custom repositories**, and add `https://github.com/eklundjon/ha-oppo-player` with the type **Integration**. Then download **Oppo UDP-20x** and restart Home Assistant.
 
 If you already have a player set up under the old `oppo_udp` integration (this one before 0.3.0, or simbaja/ha_oppoudp), see [Moving to oppo_player](#moving-to-oppo_player).
 
@@ -127,7 +127,7 @@ logger:
     custom_components.oppo_player: debug
 ```
 
-When you [open an issue](https://github.com/eklundjon/ha-oppoudp/issues), please include your player model, how it's connected, your Home Assistant version, and the debug log.
+When you [open an issue](https://github.com/eklundjon/ha-oppo-player/issues), please include your player model, how it's connected, your Home Assistant version, and the debug log.
 
 ## More documentation
 
@@ -144,6 +144,6 @@ The icon and logo are drawn from the OPPO wordmark on [Wikimedia Commons](https:
 [ha-shield]: https://img.shields.io/badge/Home%20Assistant-2025.2+-blue.svg?style=for-the-badge&logo=homeassistant
 [hacs]: https://github.com/hacs/integration
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
-[license-shield]: https://img.shields.io/github/license/eklundjon/ha-oppoudp.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/eklundjon/ha-oppoudp.svg?style=for-the-badge&include_prereleases
-[releases]: https://github.com/eklundjon/ha-oppoudp/releases
+[license-shield]: https://img.shields.io/github/license/eklundjon/ha-oppo-player.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/eklundjon/ha-oppo-player.svg?style=for-the-badge&include_prereleases
+[releases]: https://github.com/eklundjon/ha-oppo-player/releases
