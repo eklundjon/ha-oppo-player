@@ -58,7 +58,7 @@ Otherwise:
 |--------|-------------|-----------|
 | Network (recommended) | The player is on your network, or a TCP serial gateway (for example a Global Caché iTach) is wired to its RS-232 port | The player's IP address and port 23, or the gateway's address and serial port |
 | RFC2217 serial gateway | A serial-to-network gateway is wired to the player's RS-232 port | The gateway's address and port |
-| ESPHome serial proxy | An ESPHome device is wired to the player's RS-232 port | The ESPHome device's address and port |
+| ESPHome serial proxy | An ESPHome device running `serial_proxy` is wired to the player's RS-232 port (offered on Home Assistant 2026.5 or later) | The ESPHome device's address, port 6053, and its API encryption key if it uses one |
 | Local serial | A USB serial adapter connects Home Assistant to the player's RS-232 port | The device path (for example `/dev/ttyUSB0`). The player's port runs at 9600 baud. |
 
 Setup fails with *Failed to connect* if the player doesn't answer. Check that it's switched on and that the address is right.
